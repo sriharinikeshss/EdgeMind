@@ -38,6 +38,7 @@ class StepResult(BaseModel):
     output: str | None = None
     error: str | None = None
     tool: str | None = None
+    tool_data: dict | None = None
 
 
 class AgentResponse(BaseModel):
@@ -73,10 +74,27 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
         sm.persist_task_state(db)
         task_type = planner.classify_task(req.prompt)
 
+        # Decode image_base64 to file
+        file_attachments = None
+        if req.image_base64:
+            import base64
+            import os
+            os.makedirs("/app/data/workspaces", exist_ok=True)
+            image_path = f"/app/data/workspaces/{task_id}_attached.png"
+            b64_data = req.image_base64
+            if "," in b64_data:
+                b64_data = b64_data.split(",")[1]
+            try:
+                with open(image_path, "wb") as f:
+                    f.write(base64.b64decode(b64_data))
+                file_attachments = [image_path]
+            except Exception as e:
+                logger.error("Failed to decode attached image: %s", e)
+
         # 3. PLAN
         sm.transition(TaskStatus.PLANNED)
         sm.persist_task_state(db)
-        plan = planner.generate_plan(task_id, req.prompt, image_base64=req.image_base64, filename=req.filename)
+        plan = planner.generate_plan(task_id, req.prompt, file_attachments=file_attachments)
 
         # Log routing decision
         from models.registry import registry
@@ -113,6 +131,7 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
                 output=str(r.get("output", ""))[:2000],
                 error=r.get("error"),
                 tool=r.get("tool"),
+                tool_data=r.get("tool_data"),
             ))
         for i, (step, sr) in enumerate(zip(plan.steps, step_results)):
             sr.step_id = step.step_id

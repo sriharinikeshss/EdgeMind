@@ -101,11 +101,11 @@ class Planner:
 
         return list(dict.fromkeys(modalities))
 
-    def classify_task(self, description: str) -> str:
+    def classify_task(self, description: str, file_attachments: list[str] | None = None) -> str:
         """
         Returns the primary task category: 'CODING', 'VISION', 'RAG', or 'REASONING'.
         """
-        modalities = self.detect_required_modalities(description)
+        modalities = self.detect_required_modalities(description, file_attachments=file_attachments)
         if "engineering_drawing" in modalities or "scanned_document" in modalities or "ocr" in modalities:
             return "VISION"
         if "code" in modalities:
@@ -114,12 +114,12 @@ class Planner:
             return "RAG"
         return "REASONING"
 
-    def _generate_fallback_plan(self, description: str) -> list[PlanStep]:
+    def _generate_fallback_plan(self, description: str, file_attachments: list[str] | None = None) -> list[PlanStep]:
         """
         Intelligent multi-step fallback plan when LLM is unavailable.
         Respects multimodal anti-hallucination dependencies.
         """
-        modalities = self.detect_required_modalities(description)
+        modalities = self.detect_required_modalities(description, file_attachments=file_attachments)
 
         if "engineering_drawing" in modalities:
             return [
@@ -128,7 +128,7 @@ class Planner:
                     action="Analyze engineering drawing / P&ID for component tags, instruments, and connections",
                     tool="analyze_engineering_drawing",
                     depends_on=[],
-                    params={"prompt": description},
+                    params={"prompt": description, "image_path": file_attachments[0] if file_attachments else None},
                 ),
                 PlanStep(
                     step_id="step_2",
@@ -145,7 +145,7 @@ class Planner:
                     action="Extract structured text and key-value fields from scanned document",
                     tool="analyze_scanned_document",
                     depends_on=[],
-                    params={"prompt": description},
+                    params={"prompt": description, "image_path": file_attachments[0] if file_attachments else None},
                 ),
                 PlanStep(
                     step_id="step_2",
@@ -184,14 +184,15 @@ class Planner:
             )
         ]
 
-    def generate_plan(self, task_id: str, description: str, image_base64: str | None = None, filename: str | None = None) -> ExecutionPlan:
+    def generate_plan(self, task_id: str, description: str, file_attachments: list[str] | None = None) -> ExecutionPlan:
         """
         Phase 3/5: call reasoning model to produce a structured step plan DAG.
         Falls back to intelligent rule-based multi-step plan if model is unavailable.
         """
         from models.registry import registry
 
-        prompt = f"{_PLAN_SYSTEM_PROMPT}\n\nUser task:\n{description}"
+        attachment_ctx = f"\n\nAttached files for reference: {', '.join(file_attachments)}\n" if file_attachments else ""
+        prompt = f"{_PLAN_SYSTEM_PROMPT}{attachment_ctx}\n\nUser task:\n{description}"
         model_id = registry.route_task(description)
 
         try:
@@ -217,23 +218,21 @@ class Planner:
                 raise ValueError("Empty steps list from model")
 
             # Anti-hallucination tool validation: ensure vision tools are only assigned when visual modality is detected
-            detected_modalities = self.detect_required_modalities(description)
+            detected_modalities = self.detect_required_modalities(description, file_attachments=file_attachments)
             has_vision = any(m in detected_modalities for m in ["scanned_document", "engineering_drawing", "ocr", "vision"])
             for s in steps:
                 if s.tool in ["run_ocr", "analyze_scanned_document", "analyze_engineering_drawing"] and not has_vision:
                     s.tool = "direct_llm"
         except Exception as exc:
             logger.info("Plan generation using intelligent fallback (%s)", exc)
-            steps = self._generate_fallback_plan(description)
-        # Phase 5: if image_base64 is provided, prepend a deterministic OCR step
-        if image_base64:
-            steps.insert(0, PlanStep(
-                step_id="step_ocr",
-                action="OCR the uploaded scanned document",
-                tool="analyze_scanned_document",
-                depends_on=[],
-                params={"image_base64": image_base64, "filename": filename},
-            ))
+            steps = self._generate_fallback_plan(description, file_attachments=file_attachments)
+
+        # Auto-Injection Safeguard
+        if file_attachments:
+            for s in steps:
+                if s.tool in ["run_ocr", "analyze_scanned_document", "analyze_engineering_drawing"]:
+                    if "image_path" not in s.params:
+                        s.params["image_path"] = file_attachments[0]
 
         return ExecutionPlan(task_id=task_id, steps=steps)
 

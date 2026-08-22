@@ -79,7 +79,22 @@ export function Chat() {
     if (fileInputRef.current) fileInputRef.current.value = '';
     setIsLoading(true);
     try {
-      if (currentImage) {
+      if (agentMode) {
+        // Agent Mode: route entirely through the orchestrator
+        const payload: any = { prompt: userMsg.text };
+        if (currentImage) payload.image_base64 = currentImage;
+        const resp = await fetch(`${API_URL}/api/agent`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(payload) });
+        const data = await resp.json();
+        
+        let visionData: MultimodalResult | undefined = undefined;
+        if (data.steps) {
+          const visionStep = data.steps.find((s: any) => s.tool === 'run_ocr' || s.tool === 'analyze_scanned_document' || s.tool === 'analyze_engineering_drawing');
+          if (visionStep && visionStep.tool_data) visionData = visionStep.tool_data;
+        }
+        
+        setMessages(prev => [...prev, { id: data.task_id, sender: 'agent', text: data.final_output || '[No output]', trace: { steps: data.steps ?? [], events: data.events ?? [], status: data.status, validationPassed: data.validation_passed }, multimodal_result: visionData, image_preview: currentImage }]);
+      } else if (currentImage) {
+        // Direct Mode with image
         const visionResp = await fetch(`${API_URL}/api/vision/multimodal`, {
           method: 'POST', headers: getHeaders(),
           body: JSON.stringify({ image_base64: currentImage, task_type: 'auto' }),
@@ -89,11 +104,8 @@ export function Chat() {
         const resp = await fetch(`${API_URL}/api/tasks`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ prompt }) });
         const data = await resp.json();
         setMessages(prev => [...prev, { id: data.task_id || Date.now().toString(), sender: 'agent', text: data.response, model_used: data.model_used || 'qwen2.5:1.5b', latency_ms: data.latency_ms, multimodal_result: visionData, image_preview: currentImage }]);
-      } else if (agentMode) {
-        const resp = await fetch(`${API_URL}/api/agent`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ prompt: userMsg.text }) });
-        const data = await resp.json();
-        setMessages(prev => [...prev, { id: data.task_id, sender: 'agent', text: data.final_output || '[No output]', trace: { steps: data.steps ?? [], events: data.events ?? [], status: data.status, validationPassed: data.validation_passed } }]);
       } else {
+        // Direct Mode text only
         const resp = await fetch(`${API_URL}/api/tasks`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ prompt: userMsg.text }) });
         const data = await resp.json();
         setMessages(prev => [...prev, { id: data.task_id, sender: 'agent', text: data.response, model_used: data.model_used, latency_ms: data.latency_ms }]);

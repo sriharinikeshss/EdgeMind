@@ -147,12 +147,16 @@ class Executor:
 
         # Inject context from previous steps into params
         params = {**step.params, "task_id": task_id}
-        if "prompt" not in params and step.action:
-            # Build context string from previous step outputs
-            ctx_str = "\n".join(
-                f"[{sid}]: {out}" for sid, out in self.context.items()
-            )
-            params["prompt"] = f"{step.action}\n\nContext from previous steps:\n{ctx_str}" if ctx_str else step.action
+        ctx_str = "\n".join(
+            f"[{sid}]: {out}" for sid, out in self.context.items()
+        )
+        if ctx_str:
+            if "prompt" in params:
+                params["prompt"] = f"{params['prompt']}\n\nContext from previous steps:\n{ctx_str}"
+            elif step.action:
+                params["prompt"] = f"{step.action}\n\nContext from previous steps:\n{ctx_str}"
+        elif "prompt" not in params and step.action:
+            params["prompt"] = step.action
 
         try:
             if tool_name == "direct_llm":
@@ -168,16 +172,19 @@ class Executor:
                 output = registry.execute_tool(
                     tool_name, user_role=self.user_role, arguments=params, db=self.db, username=self.username
                 )
+                tool_data = None
                 if isinstance(output, dict):
+                    tool_data = output  # Preserve full raw JSON for frontend Visual Evidence
                     if output.get("grounding_prompt"):
                         clean_output = output["grounding_prompt"]
                     elif output.get("stdout") is not None:
                         clean_output = output["stdout"]
                     else:
-                        clean_output = str(output)
+                        # Fallback for dicts without standard keys (if any)
+                        clean_output = json.dumps(output)
                 else:
-                    clean_output = output
-                return {"success": True, "output": clean_output, "tool": tool_name}
+                    clean_output = str(output)
+                return {"success": True, "output": clean_output, "tool": tool_name, "tool_data": tool_data}
             else:
                 # Tool not registered yet — use direct_llm as fallback
                 prompt = params.get("prompt", step.action)
