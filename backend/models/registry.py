@@ -98,13 +98,56 @@ class ModelRegistry:
 
     def route_task(self, prompt: str) -> str:
         """
-        Phase 2: Route the task to the best model based on classification.
+        Phase 2/3: Route the task to the best model based on classification.
+        Falls back to fallback_model() if primary model has insufficient VRAM.
         """
         task_type = self.classify_task(prompt)
         scores = self.score_models(task_type)
         selected = self.select_best_model(scores)
+        if not self.check_vram_capacity(selected):
+            selected = self.fallback_model(task_type)
         logger.info(f"Routed task_type '{task_type}' to model '{selected}'. Scores: {scores}")
         return selected
+
+    def estimate_latency(self, model_id: str, prompt_token_count: int = 500) -> float:
+        """
+        Phase 3 (M2): Estimate latency in milliseconds for a given model and prompt size.
+        Uses a simple heuristic: tokens / throughput_tokens_per_sec * 1000.
+        """
+        # Approximate throughputs (tokens/sec) per model at 4-bit quantization on a consumer GPU
+        throughput_map = {
+            OLLAMA_REASONING_MODEL: 25.0,   # ~25 tok/s for 7B reasoning
+            OLLAMA_CODING_MODEL:    20.0,   # ~20 tok/s for 7B coder
+        }
+        throughput = throughput_map.get(model_id, 15.0)
+        estimated_ms = (prompt_token_count / throughput) * 1000
+        logger.debug("Estimated latency for %s: %.0f ms (%d tokens)", model_id, estimated_ms, prompt_token_count)
+        return estimated_ms
+
+    def fallback_model(self, task_type: str) -> str:
+        """
+        Phase 3 (M2): Return a fallback model when the primary model has insufficient VRAM.
+        Always falls back to the reasoning model since it is more general-purpose.
+        """
+        logger.warning("VRAM insufficient — falling back to reasoning model for task_type '%s'", task_type)
+        return OLLAMA_REASONING_MODEL
+
+    def health_check_model(self, model_id: str) -> bool:
+        """
+        Phase 3 (M2): Check whether Ollama can reach the model.
+        Returns True if healthy, False otherwise.
+        """
+        import httpx
+        try:
+            with httpx.Client(timeout=5.0) as client:
+                resp = client.post(
+                    f"{OLLAMA_BASE_URL}/api/generate",
+                    json={"model": model_id, "prompt": "ping", "stream": False},
+                )
+                return resp.status_code == 200
+        except Exception as exc:
+            logger.warning("Health check failed for model %s: %s", model_id, exc)
+            return False
 
     def execute_prompt(self, model_id: str, prompt: str) -> tuple[str, float]:
         """

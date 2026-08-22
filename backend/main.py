@@ -4,7 +4,7 @@ EdgeMind KAVACH API — main entry point.
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api import tasks, auth
+from api import tasks, auth, agent, rag, vision
 from database.session import create_tables
 
 logging.basicConfig(
@@ -13,7 +13,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="EdgeMind KAVACH API", version="0.1.0")
+app = FastAPI(title="EdgeMind KAVACH API", version="0.3.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,6 +26,9 @@ app.add_middleware(
 # Register routers
 app.include_router(tasks.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
+app.include_router(agent.router, prefix="/api")
+app.include_router(rag.router, prefix="/api")
+app.include_router(vision.router, prefix="/api")
 
 
 @app.on_event("startup")
@@ -43,4 +46,3 @@ def health_check():
 @app.get("/")
 def read_root():
     return {"message": "Welcome to EdgeMind KAVACH API"}
-
