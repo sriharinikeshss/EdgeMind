@@ -146,29 +146,45 @@ tool_registry = ToolRegistry()
 # ── Register built-in Phase 3 tools ──────────────────────────────────────────
 
 def _execute_python_handler(code: str = None, script: str = None, prompt: str = None, timeout_seconds: int = 10, **kwargs) -> dict:
-    c = code or script
-    if not c:
-        p = prompt or ""
-        py_keywords = ["def ", "import ", "print(", "class "]
-        if any(kw in p for kw in py_keywords):
-            c = p
-        else:
-            from models.registry import registry
-            model_id = registry.route_task(p)
-            output, _ = registry.execute_prompt(model_id, p)
-            return {"stdout": output, "stderr": "", "exit_code": 0}
-
+    from models.registry import registry
     from sandbox.manager import sandbox_manager
+
+    c = code or script
+    p = prompt or ""
+
+    # If explicit code was not provided, use LLM to generate Python code for the prompt
+    if not c and p:
+        model_id = registry.route_task(p)
+        gen_prompt = f"Write ONLY executable Python code to solve this request. Include print() statements to display results. Do NOT include Markdown formatting or explanations.\nRequest: {p}"
+        raw_code, _ = registry.execute_prompt(model_id, gen_prompt)
+        c = raw_code.strip()
+        if c.startswith("```"):
+            lines = c.split("\n")[1:]
+            if lines and lines[-1].strip().endswith("```"):
+                lines = lines[:-1]
+            c = "\n".join(lines).strip()
+
+    if not c:
+        return {"stdout": "No code or prompt provided.", "stderr": "", "exit_code": -1}
+
+    # Execute code in sandbox
     res = sandbox_manager.execute_python(c, timeout_seconds=timeout_seconds)
-    # If Python executed successfully but produced empty output (no print statements), generate a textual response
-    if res.get("exit_code") == 0 and not (res.get("stdout") or "").strip() and not (res.get("stderr") or "").strip():
-        p = prompt or code or script or ""
-        if p:
-            from models.registry import registry
-            model_id = registry.route_task(p)
-            output, _ = registry.execute_prompt(model_id, p)
-            res["stdout"] = output
-    return res
+
+    # Format response to include both the Python code snippet and the execution stdout
+    stdout_text = (res.get("stdout") or "").strip()
+    stderr_text = (res.get("stderr") or "").strip()
+
+    output_lines = [f"```python\n{c}\n```"]
+    if stdout_text:
+        output_lines.append(f"**Execution Output:**\n```\n{stdout_text}\n```")
+    if stderr_text:
+        output_lines.append(f"**Execution Errors:**\n```\n{stderr_text}\n```")
+
+    return {
+        "stdout": "\n\n".join(output_lines),
+        "stderr": stderr_text,
+        "exit_code": res.get("exit_code", 0)
+    }
 
 
 def _rag_search_handler(query: str = None, prompt: str = None, top_k: int = 5, collection: str = "kavach_docs", **kwargs) -> list[dict]:
