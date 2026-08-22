@@ -63,7 +63,7 @@ class ToolRegistry:
         tool = self.get_tool(tool_name)
         return user_role in tool.allowed_roles
 
-    def execute_tool(self, tool_name: str, user_role: str, arguments: dict[str, Any], db=None) -> Any:
+    def execute_tool(self, tool_name: str, user_role: str, arguments: dict[str, Any], db=None, username: str | None = None) -> Any:
         """
         Phase 3: Permission-check ΓåÆ invoke handler ΓåÆ log to DB.
         """
