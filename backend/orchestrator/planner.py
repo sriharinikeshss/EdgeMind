@@ -39,7 +39,11 @@ The plan must be a JSON object with a key "steps" containing a list of step obje
 Each step object must have:
   - "step_id": a short unique ID like "step_1"
   - "action": a brief description of what to do
-  - "tool": the tool to use, or null if it is a reasoning-only step. Available tools: ["execute_python", "rag_search", "run_ocr", "direct_llm"]
+  - "tool": tool to use. Available options:
+      * "direct_llm": Use for summarization, checklists, reasoning, writing, and text analysis (Default for most steps).
+      * "execute_python": Use ONLY if the step requires executing actual Python code or calculations.
+      * "rag_search": Use ONLY if searching stored SOPs, manuals, or documents.
+      * "run_ocr": Use ONLY if reading scanned document images or PDFs.
   - "depends_on": list of step_ids this step depends on (can be empty list)
   - "params": dict of parameters for the tool call (can be empty dict)
 
@@ -47,8 +51,8 @@ Only output valid JSON, no extra text.
 Example:
 {
   "steps": [
-    {"step_id": "step_1", "action": "Reason about the problem", "tool": "direct_llm", "depends_on": [], "params": {}},
-    {"step_id": "step_2", "action": "Summarize findings", "tool": "direct_llm", "depends_on": ["step_1"], "params": {}}
+    {"step_id": "step_1", "action": "Summarize the key points", "tool": "direct_llm", "depends_on": [], "params": {}},
+    {"step_id": "step_2", "action": "Convert summary into a checklist", "tool": "direct_llm", "depends_on": ["step_1"], "params": {}}
   ]
 }
 """

@@ -54,11 +54,12 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db)):
     CREATED → CLASSIFIED → PLANNED → EXECUTING → VALIDATING → COMPLETED/FAILED
     """
     # 1. Create task record
-    task = Task(description=req.prompt, status=TaskStatus.CREATED.value)
+    import uuid
+    task_id = str(uuid.uuid4())
+    task = Task(id=task_id, description=req.prompt, status=TaskStatus.CREATED.value)
     db.add(task)
     db.commit()
     db.refresh(task)
-    task_id = task.id
 
     sm = TaskStateMachine(task_id, TaskStatus.CREATED)
 
@@ -145,6 +146,7 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db)):
     except Exception as exc:
         logger.error("Agent loop failed for task %s: %s", task_id, exc)
         try:
+            db.rollback()
             sm.transition(TaskStatus.FAILED)
             sm.persist_task_state(db)
         except Exception:

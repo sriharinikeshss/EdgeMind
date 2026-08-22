@@ -145,21 +145,44 @@ tool_registry = ToolRegistry()
 
 # ── Register built-in Phase 3 tools ──────────────────────────────────────────
 
-def _execute_python_handler(code: str, timeout_seconds: int = 10, **kwargs) -> dict:
+def _execute_python_handler(code: str = None, script: str = None, prompt: str = None, timeout_seconds: int = 10, **kwargs) -> dict:
+    c = code or script
+    if not c:
+        p = prompt or ""
+        py_keywords = ["def ", "import ", "print(", "class "]
+        if any(kw in p for kw in py_keywords):
+            c = p
+        else:
+            from models.registry import registry
+            model_id = registry.route_task(p)
+            output, _ = registry.execute_prompt(model_id, p)
+            return {"stdout": output, "stderr": "", "exit_code": 0}
+
     from sandbox.manager import sandbox_manager
-    return sandbox_manager.execute_python(code, timeout_seconds=timeout_seconds)
+    res = sandbox_manager.execute_python(c, timeout_seconds=timeout_seconds)
+    # If Python executed successfully but produced empty output (no print statements), generate a textual response
+    if res.get("exit_code") == 0 and not (res.get("stdout") or "").strip() and not (res.get("stderr") or "").strip():
+        p = prompt or code or script or ""
+        if p:
+            from models.registry import registry
+            model_id = registry.route_task(p)
+            output, _ = registry.execute_prompt(model_id, p)
+            res["stdout"] = output
+    return res
 
 
-def _rag_search_handler(query: str, top_k: int = 5, collection: str = "kavach_docs", **kwargs) -> list[dict]:
+def _rag_search_handler(query: str = None, prompt: str = None, top_k: int = 5, collection: str = "kavach_docs", **kwargs) -> list[dict]:
+    q = query or prompt or kwargs.get("text") or ""
     from api.rag import _get_query_embedding, _search_qdrant
-    vec = _get_query_embedding(query)
+    vec = _get_query_embedding(q)
     return _search_qdrant(vec, collection, top_k)
 
 
-def _direct_llm_handler(prompt: str, **kwargs) -> str:
+def _direct_llm_handler(prompt: str = None, query: str = None, **kwargs) -> str:
+    p = prompt or query or ""
     from models.registry import registry
-    model_id = registry.route_task(prompt)
-    output, _ = registry.execute_prompt(model_id, prompt)
+    model_id = registry.route_task(p)
+    output, _ = registry.execute_prompt(model_id, p)
     return output
 
 

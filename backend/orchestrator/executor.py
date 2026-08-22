@@ -119,7 +119,11 @@ class Executor:
             # Use registered tool
             if registry and tool_name in registry.list_tools():
                 output = registry.execute_tool(tool_name, user_role="operator", arguments=params)
-                return {"success": True, "output": output, "tool": tool_name}
+                if isinstance(output, dict):
+                    clean_output = output.get("stdout") if output.get("stdout") is not None else str(output)
+                else:
+                    clean_output = output
+                return {"success": True, "output": clean_output, "tool": tool_name}
             else:
                 # Tool not registered yet — use direct_llm as fallback
                 prompt = params.get("prompt", step.action)
@@ -164,4 +168,6 @@ class Executor:
             self.db.add(ts)
             self.db.commit()
         except Exception as exc:
+            if self.db:
+                self.db.rollback()
             logger.warning("Failed to write TaskStep to DB: %s", exc)
