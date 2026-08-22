@@ -64,3 +64,37 @@ class Artifact(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     task = relationship("Task", back_populates="artifacts")
+
+
+class ModelRoute(Base):
+    __tablename__ = "model_routes"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    task_id = Column(String, ForeignKey("tasks.id"), nullable=False)
+    task_type = Column(String, nullable=False)
+    selected_model = Column(String, nullable=False)
+    routing_reason = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class ToolCall(Base):
+    __tablename__ = "tool_calls"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    task_id = Column(String, ForeignKey("tasks.id"), nullable=False)
+    tool_name = Column(String, nullable=False)
+    arguments = Column(Text, nullable=True)
+    result = Column(Text, nullable=True)
+    status = Column(String, nullable=False, default="PENDING")
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    user_id = Column(String, nullable=True)
+    action = Column(String, nullable=False)
+    details = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+

@@ -1,12 +1,14 @@
 """
-TaskStateMachine — Phase 0 scaffold (M1).
+TaskStateMachine — Phase 3 full implementation (M1).
 
-Implements the state enum and transition rules from the architecture doc.
-The actual state-machine logic (persisting state, running transitions) will
-be fleshed out in Phase 3. For now, this gives all team members the shared
-vocabulary so the codebase compiles cleanly.
+Implements state transitions persisted to the DB via persist_task_state()
+and restore_task_state().
 """
+from __future__ import annotations
 from enum import Enum
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TaskStatus(str, Enum):
@@ -22,21 +24,20 @@ class TaskStatus(str, Enum):
 
 # Valid transitions: from_state → set of allowed to_states
 _TRANSITIONS: dict[TaskStatus, set[TaskStatus]] = {
-    TaskStatus.CREATED: {TaskStatus.CLASSIFIED, TaskStatus.FAILED},
+    TaskStatus.CREATED:    {TaskStatus.CLASSIFIED, TaskStatus.FAILED},
     TaskStatus.CLASSIFIED: {TaskStatus.PLANNED, TaskStatus.FAILED},
-    TaskStatus.PLANNED: {TaskStatus.EXECUTING, TaskStatus.FAILED},
-    TaskStatus.EXECUTING: {TaskStatus.VALIDATING, TaskStatus.RETRYING, TaskStatus.FAILED},
+    TaskStatus.PLANNED:    {TaskStatus.EXECUTING, TaskStatus.FAILED},
+    TaskStatus.EXECUTING:  {TaskStatus.VALIDATING, TaskStatus.RETRYING, TaskStatus.FAILED},
     TaskStatus.VALIDATING: {TaskStatus.COMPLETED, TaskStatus.RETRYING, TaskStatus.FAILED},
-    TaskStatus.RETRYING: {TaskStatus.EXECUTING, TaskStatus.FAILED},
-    TaskStatus.COMPLETED: set(),
-    TaskStatus.FAILED: set(),
+    TaskStatus.RETRYING:   {TaskStatus.EXECUTING, TaskStatus.FAILED},
+    TaskStatus.COMPLETED:  set(),
+    TaskStatus.FAILED:     set(),
 }
 
 
 class TaskStateMachine:
     """
-    Lightweight in-memory state machine for a single task.
-    Phase 3 will add DB persistence via persist_task_state() / restore_task_state().
+    Lightweight in-memory state machine for a single task with DB persistence.
     """
 
     def __init__(self, task_id: str, initial_status: TaskStatus = TaskStatus.CREATED):
@@ -59,15 +60,26 @@ class TaskStateMachine:
                 f"{self._status} → {new_status}. "
                 f"Allowed: {allowed}"
             )
+        old_status = self._status
         self._status = new_status
+        logger.info("Task %s: %s → %s", self.task_id, old_status, new_status)
 
     def persist_task_state(self, db_session) -> None:
-        """TODO Phase 3: write current status to the tasks table."""
-        raise NotImplementedError("State persistence wired in Phase 3.")
+        """Phase 3: write current status to the tasks table."""
+        from database.models import Task
+        task = db_session.query(Task).filter(Task.id == self.task_id).first()
+        if task:
+            task.status = self._status.value
+            db_session.commit()
+            logger.debug("Persisted task %s state: %s", self.task_id, self._status)
 
     def restore_task_state(self, db_session) -> None:
-        """TODO Phase 3: load status from the tasks table."""
-        raise NotImplementedError("State restoration wired in Phase 3.")
+        """Phase 3: load status from the tasks table."""
+        from database.models import Task
+        task = db_session.query(Task).filter(Task.id == self.task_id).first()
+        if task:
+            self._status = TaskStatus(task.status)
+            logger.debug("Restored task %s state: %s", self.task_id, self._status)
 
     def __repr__(self) -> str:
         return f"<TaskStateMachine task={self.task_id} status={self._status}>"
