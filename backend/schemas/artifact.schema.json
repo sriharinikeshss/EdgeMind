@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Artifact",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "task_id": { "type": "string" },
+    "filename": { "type": "string" },
+    "content_type": { "type": "string" },
+    "file_hash": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "required": ["id", "task_id", "filename"]
+}
