@@ -154,6 +154,8 @@ class Executor:
 
             # Use registered tool
             if registry and tool_name in registry.list_tools():
+                if not registry.validate_tool_arguments(tool_name, params):
+                    return {"success": False, "error": f"Invalid arguments for {tool_name}", "tool": tool_name}
                 output = registry.execute_tool(tool_name, user_role=self.user_role, arguments=params, db=self.db)
                 if isinstance(output, dict):
                     clean_output = output.get("stdout") if output.get("stdout") is not None else str(output)
