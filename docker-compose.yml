@@ -44,14 +44,14 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
-    # To use a GPU: add the deploy block below and ensure nvidia-container-toolkit is installed
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
+     To use a GPU: add the deploy block below and ensure nvidia-container-toolkit is installed
+     deploy:
+       resources:
+         reservations:
+           devices:
+             - driver: nvidia
+               count: all
+               capabilities: [gpu]
 
   backend:
     build: ./backend

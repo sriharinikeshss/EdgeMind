@@ -24,7 +24,12 @@ class SandboxManager:
     """
 
     def __init__(self):
-        self.client = docker.from_env() if docker else None
+        self.client = None
+        if docker:
+            try:
+                self.client = docker.from_env()
+            except Exception as e:
+                logger.warning("Docker daemon not reachable: %s. Using subprocess fallback.", e)
         self._active_sandboxes: dict[str, Any] = {}
 
     def create_sandbox(
