@@ -1,16 +1,10 @@
 /**
- * App.tsx — EdgeMind KAVACH
- *
- * Simple auth-gated layout:
- *   Not logged in → <Login />
- *   Logged in     → main workbench with <Chat />
- *
- * Phase 9 will add a full router (react-router-dom) with protected routes.
+ * App.tsx - EdgeMind KAVACH
  */
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { Chat } from './components/Chat';
-import { Login } from './pages/Login';
-import './App.css';
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { Chat } from "./components/Chat";
+import { Login } from "./pages/Login";
+import "./App.css";
 
 function AppInner() {
   const { isAuthenticated, user, logout } = useAuth();
@@ -23,7 +17,7 @@ function AppInner() {
     <div className="app-container">
       <header className="app-header">
         <div className="header-left">
-          <span className="header-logo">⬡</span>
+          <span className="header-logo">🧠</span>
           <div>
             <h1>EdgeMind KAVACH Workbench</h1>
             <p>Sovereign On-Premise Agentic AI</p>
@@ -52,4 +46,3 @@ function App() {
 }
 
 export default App;
-

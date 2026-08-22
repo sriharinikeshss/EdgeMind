@@ -1,12 +1,8 @@
 /**
- * Login page — Phase 1 (M6).
- *
- * Collects username + password, calls AuthContext.login(),
- * and redirects to the Chat page on success.
- *
- * Default dev credentials:  admin / kavach123  or  operator / kavach123
+ * Login page - Phase 1 (M6).
  */
-import { useState, FormEvent } from 'react';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
 import './Login.css';
 
@@ -39,7 +35,7 @@ export function Login({ onSuccess }: LoginProps) {
     <div className="login-wrapper">
       <div className="login-card">
         <div className="login-logo">
-          <span className="logo-icon">⬡</span>
+          <span className="logo-icon">🛡️</span>
           <span className="logo-text">EdgeMind <strong>KAVACH</strong></span>
         </div>
         <p className="login-subtitle">Sovereign On-Premise Agentic AI</p>
@@ -73,7 +69,7 @@ export function Login({ onSuccess }: LoginProps) {
           {error && <div className="login-error">{error}</div>}
 
           <button type="submit" className="login-btn" disabled={loading}>
-            {loading ? 'Authenticating…' : 'Sign In'}
+            {loading ? 'Authenticating...' : 'Sign In'}
           </button>
         </form>
 

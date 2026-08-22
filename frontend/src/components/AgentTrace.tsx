@@ -1,9 +1,5 @@
 /**
- * AgentTrace — Phase 3 (M6).
- *
- * Displays the live agent execution trace: step-by-step plan, status icons,
- * and expand/collapse output for each step.
- * Driven by the `events` array returned in the POST /api/agent response.
+ * AgentTrace - Phase 3 (M6).
  */
 import { useState } from 'react';
 import './AgentTrace.css';
@@ -51,7 +47,7 @@ export function AgentTrace({ steps, events, status, validationPassed }: AgentTra
   const toggle = (id: string) =>
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
 
-  const overallIcon = STATUS_ICON[status] ?? '❓';
+  const overallIcon = STATUS_ICON[status] ?? '⚙️';
 
   return (
     <div className="agent-trace">
@@ -61,7 +57,7 @@ export function AgentTrace({ steps, events, status, validationPassed }: AgentTra
           {overallIcon} {status}
           {status === 'COMPLETED' && (
             <span className={`validation-badge ${validationPassed ? 'pass' : 'fail'}`}>
-              {validationPassed ? ' · Validated ✅' : ' · Validation ❌'}
+              {validationPassed ? ' ✦ Validated ✅' : ' ✦ Validation ❌'}
             </span>
           )}
         </span>

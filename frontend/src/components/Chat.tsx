@@ -1,10 +1,5 @@
 /**
- * Chat component — Phase 3 (M6).
- *
- * Adds an "Agent Mode" toggle:
- *   - OFF → calls POST /api/tasks (direct single-shot, Phase 1/2)
- *   - ON  → calls POST /api/agent  (Planner→Executor→Validator loop, Phase 3)
- *           and renders the AgentTrace component below the response.
+ * Chat component - Phase 3 (M6).
  */
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
@@ -36,7 +31,7 @@ export function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [agentMode, setAgentMode] = useState(false);
 
-  const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+  const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -108,7 +103,7 @@ export function Chat() {
             onChange={e => setAgentMode(e.target.checked)}
           />
           <span className={`mode-label ${agentMode ? 'agent' : 'direct'}`}>
-            {agentMode ? '🤖 Agent Mode (Planner → Executor → Validator)' : '⚡ Direct Mode'}
+            {agentMode ? '🧠 Agent Mode (Planner → Executor → Validator)' : '⚡ Direct Mode'}
           </span>
         </label>
       </div>
@@ -121,7 +116,7 @@ export function Chat() {
               <div className={`model-badge ${msg.model_used.includes('coder') ? 'coder' : 'reasoning'}`}>
                 🤖 {msg.model_used}
                 {msg.latency_ms !== undefined && (
-                  <span className="latency"> · {Math.round(msg.latency_ms)}ms</span>
+                  <span className="latency"> ⏱️ {Math.round(msg.latency_ms)}ms</span>
                 )}
               </div>
             )}
@@ -153,10 +148,15 @@ export function Chat() {
               sendMessage();
             }
           }}
-          placeholder={agentMode ? 'Give the agent a multi-step task (Shift+Enter for newline)…' : 'Ask EdgeMind…'}
+          placeholder={agentMode ? 'Give the agent a multi-step task (Shift+Enter for newline)...' : 'Ask EdgeMind...'}
           rows={3}
         />
-        <button onClick={sendMessage} disabled={isLoading}>Send</button>
+        <button onClick={sendMessage} disabled={isLoading}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
       </div>
     </div>
   );
