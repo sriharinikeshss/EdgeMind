@@ -58,16 +58,31 @@ class ToolRegistry:
     def check_tool_permission(self, tool_name: str, user_role: str) -> bool:
         """
         Returns True if user_role is allowed to call tool_name.
-        Phase 4 will wire to full RBAC engine (M6).
+        Delegates to the Security Engine (backend/security/engine.py) so
+        RBAC lives in one place, not scattered inline checks.
         """
+        from security.engine import authorize_tool
         tool = self.get_tool(tool_name)
-        return user_role in tool.allowed_roles
+        return authorize_tool(tool_name, user_role, tool.allowed_roles)
 
-    def execute_tool(self, tool_name: str, user_role: str, arguments: dict[str, Any], db=None) -> Any:
+    def execute_tool(
+        self, tool_name: str, user_role: str, arguments: dict[str, Any], db=None, username: str | None = None
+    ) -> Any:
         """
-        Phase 3: Permission-check → invoke handler → log to DB.
+        Phase 3/4: Permission-check → invoke handler → log to DB (tool_calls + audit_logs).
+        Raises PermissionError (not retried by the executor) on an RBAC denial.
         """
         if not self.check_tool_permission(tool_name, user_role):
+            if db:
+                self.log_tool_call(
+                    db=db,
+                    task_id=arguments.get("task_id", "unknown"),
+                    tool_name=tool_name,
+                    arguments=arguments,
+                    result=None,
+                    status="DENIED",
+                    username=username or user_role,
+                )
             raise PermissionError(
                 f"Role '{user_role}' is not allowed to call tool '{tool_name}'."
             )
@@ -85,6 +100,7 @@ class ToolRegistry:
                     arguments=arguments,
                     result=result,
                     status="COMPLETED",
+                    username=username or user_role,
                 )
             return result
         except Exception as exc:
@@ -96,6 +112,7 @@ class ToolRegistry:
                     arguments=arguments,
                     result=None,
                     status="FAILED",
+                    username=username or user_role,
                 )
             raise
 
@@ -107,9 +124,12 @@ class ToolRegistry:
         arguments: dict,
         result: Any,
         status: str = "COMPLETED",
+        username: str | None = None,
     ) -> None:
         """
-        Phase 3 (M5): Write a tool call record to the tool_calls table.
+        Phase 3/4 (M5): Write a tool call record to the tool_calls table,
+        and mirror it into audit_logs so every tool call is auditable
+        (DoD: "all tool calls appear in tool_calls table and audit log").
         """
         try:
             from database.models import ToolCall
@@ -124,6 +144,17 @@ class ToolRegistry:
             db.commit()
         except Exception as exc:
             logger.warning("log_tool_call DB write failed: %s", exc)
+
+        try:
+            from database.repo import log_audit_action
+            log_audit_action(
+                db=db,
+                action="TOOL_CALL",
+                details=f"tool={tool_name} task={task_id} status={status}",
+                user_id=username,
+            )
+        except Exception as exc:
+            logger.warning("log_tool_call audit write failed: %s", exc)
 
     def validate_tool_arguments(self, tool_name: str, arguments: dict) -> bool:
         """
@@ -222,7 +253,18 @@ def _direct_llm_handler(prompt: str = None, query: str = None, **kwargs) -> str:
 tool_registry.register_tool(ToolDefinition(
     name="execute_python",
     description="Execute Python code in a subprocess sandbox.",
-    input_schema={"type": "object", "properties": {"code": {"type": "string"}}, "required": []},
+    # Deliberately no "required": ["code"] — the handler falls back to
+    # generating code from "prompt"/"script"/the step's action text when
+    # "code" is absent (a planner step that only describes what to run,
+    # rather than inlining code, is a normal and expected case).
+    input_schema={
+        "type": "object",
+        "properties": {
+            "code": {"type": "string"},
+            "script": {"type": "string"},
+            "prompt": {"type": "string"},
+        },
+    },
     output_schema={"type": "object"},
     risk_level="HIGH",
     allowed_roles=["admin", "operator"],
@@ -297,6 +339,63 @@ def _calculator_handler(expression: str, **kwargs) -> float:
 def _query_db_handler(query: str, **kwargs) -> str:
     return f"Stub DB result for {query}"
 
+
+def _analyze_scanned_document_handler(image_base64: str = None, filename: str = None, threshold: float = 0.6, **kwargs) -> dict:
+    import base64
+    from ocr.preprocess import preprocess_image_bytes
+    from ocr.processor import run_ocr, calculate_ocr_confidence, flag_low_confidence_regions
+
+    if not image_base64:
+        return {"stdout": "No image provided.", "status": "error"}
+
+    try:
+        image_bytes = base64.b64decode(image_base64)
+    except Exception as exc:
+        return {"stdout": f"Base64 decode failed: {exc}", "status": "error"}
+
+    pre = preprocess_image_bytes(image_bytes)
+    if pre["status"] != "ok":
+        return {"stdout": f"Preprocessing failed: {pre.get('message')}", "status": "error"}
+
+    ocr_result = run_ocr(pre["image_bytes"])
+    if ocr_result["status"] != "ok":
+        return {"stdout": f"OCR failed: {ocr_result.get('message')}", "status": "error"}
+
+    confidence = calculate_ocr_confidence(ocr_result)
+    flagged = flag_low_confidence_regions(ocr_result, threshold=threshold)
+    text = ocr_result.get("text", "")
+
+    lines = [
+        f"**Extracted text**{f' ({filename})' if filename else ''}:",
+        "```",
+        text or "(no text detected)",
+        "```",
+        f"Overall confidence: {confidence:.0%}",
+    ]
+    if flagged:
+        lines.append(f"\n⚠️ {len(flagged)} low-confidence region(s) (below {threshold:.0%}):")
+        lines += [f"- \"{f['text']}\" ({f['confidence']:.0%})" for f in flagged[:20]]
+        if len(flagged) > 20:
+            lines.append(f"...and {len(flagged) - 20} more.")
+
+    return {
+        "stdout": "\n".join(lines),
+        "raw_text": text,
+        "confidence": confidence,
+        "flagged_regions": flagged,
+        "status": "ok",
+    }
+
+
+def _analyze_engineering_drawing_handler(**kwargs) -> dict:
+    return {
+        "stdout": (
+            "Engineering-drawing/P&ID analysis requires a vision-language model, "
+            "which is not yet configured in this deployment."
+        ),
+        "status": "unavailable",
+    }
+
 tool_registry.register_tool(ToolDefinition(
     name="read_file",
     description="Read contents of a file.",
@@ -343,4 +442,40 @@ tool_registry.register_tool(ToolDefinition(
     sandbox_required=False,
     network_required=True,
     handler=_query_db_handler
+))
+
+tool_registry.register_tool(ToolDefinition(
+    name="analyze_scanned_document",
+    description="OCR a scanned document/image and flag low-confidence text regions.",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "image_base64": {"type": "string"},
+            "filename": {"type": "string"},
+            "threshold": {"type": "number"},
+        },
+        "required": ["image_base64"],
+    },
+    output_schema={"type": "object"},
+    risk_level="LOW",
+    allowed_roles=["admin", "operator", "viewer"],
+    sandbox_required=False,
+    network_required=False,
+    handler=_analyze_scanned_document_handler,
+))
+
+tool_registry.register_tool(ToolDefinition(
+    name="analyze_engineering_drawing",
+    description="[Unavailable] Analyze P&ID/engineering drawings — requires a vision-language model not yet configured.",
+    input_schema={
+        "type": "object",
+        "properties": {"image_base64": {"type": "string"}},
+        "required": ["image_base64"],
+    },
+    output_schema={"type": "object"},
+    risk_level="LOW",
+    allowed_roles=["admin", "operator", "viewer"],
+    sandbox_required=False,
+    network_required=False,
+    handler=_analyze_engineering_drawing_handler,
 ))

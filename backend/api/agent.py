@@ -27,6 +27,8 @@ validator = Validator()
 class AgentRequest(BaseModel):
     prompt: str
     expected_schema: dict | None = None   # optional output schema for validation
+    image_base64: str | None = None       # Phase 5: optional attached scanned document/image
+    filename: str | None = None
 
 
 class StepResult(BaseModel):
@@ -74,7 +76,7 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
         # 3. PLAN
         sm.transition(TaskStatus.PLANNED)
         sm.persist_task_state(db)
-        plan = planner.generate_plan(task_id, req.prompt)
+        plan = planner.generate_plan(task_id, req.prompt, image_base64=req.image_base64, filename=req.filename)
 
         # Log routing decision
         from models.registry import registry
@@ -98,7 +100,7 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
         # 4. EXECUTE
         sm.transition(TaskStatus.EXECUTING)
         sm.persist_task_state(db)
-        executor = Executor(db_session=db, user_role=current_user.role)
+        executor = Executor(db_session=db, user_role=current_user.role, username=current_user.username)
         execution_result = executor.execute_plan(plan, sm)
 
         # Collect step results

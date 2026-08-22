@@ -9,8 +9,9 @@ For Phase 1, a simple hard-coded demo user is accepted so the team can
 test the login → chat → sovereignty flow without an auth server.
 
 Default demo credentials (DEV ONLY):
-  username: admin   password: kavach123
-  username: operator  password: kavach123
+  username: admin    password: kavach123
+  username: operator password: kavach123
+  username: viewer   password: kavach123
 """
 import os
 import logging
@@ -49,6 +50,11 @@ if _JOSE_AVAILABLE:
         "operator": {
             "username": "operator",
             "role": "operator",
+            "hashed_password": _pwd_ctx.hash("kavach123"),
+        },
+        "viewer": {
+            "username": "viewer",
+            "role": "viewer",
             "hashed_password": _pwd_ctx.hash("kavach123"),
         },
     }
