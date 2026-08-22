@@ -222,3 +222,91 @@ tool_registry.register_tool(ToolDefinition(
     network_required=False,
     handler=_direct_llm_handler,
 ))
+
+
+# ── Register Phase 5 Multimodal / Vision Tools ───────────────────────────────
+
+def _run_ocr_handler(image_bytes: bytes = None, image_path: str = None, **kwargs) -> dict:
+    from ocr.processor import run_ocr
+    from ocr.preprocess import preprocess_image
+    if image_path:
+        res = preprocess_image(image_path)
+        if res.get("status") == "ok":
+            image_bytes = res.get("image_bytes")
+    if not image_bytes:
+        return {"status": "error", "message": "No image_bytes or image_path provided."}
+    return run_ocr(image_bytes)
+
+
+def _analyze_scanned_document_handler(image_bytes: bytes = None, image_path: str = None, **kwargs) -> dict:
+    from vision.multimodal_processor import analyze_scanned_document
+    target = image_bytes or image_path
+    if not target:
+        return {"status": "error", "message": "No image provided for document analysis."}
+    return analyze_scanned_document(target)
+
+
+def _analyze_engineering_drawing_handler(image_bytes: bytes = None, image_path: str = None, **kwargs) -> dict:
+    from vision.multimodal_processor import analyze_engineering_drawing
+    target = image_bytes or image_path
+    if not target:
+        return {"status": "error", "message": "No image provided for engineering drawing analysis."}
+    return analyze_engineering_drawing(target)
+
+
+def _generate_visual_evidence_handler(image_bytes: bytes = None, image_path: str = None, bbox: dict = None, label: str = "", **kwargs) -> dict:
+    from vision.multimodal_processor import generate_visual_evidence
+    target = image_bytes or image_path
+    if not target or not bbox:
+        return {"status": "error", "message": "image and bbox are required to generate visual evidence."}
+    return generate_visual_evidence(target, bbox, label=label)
+
+
+tool_registry.register_tool(ToolDefinition(
+    name="run_ocr",
+    description="Run OCR text and word-level bounding box extraction on an image.",
+    input_schema={"type": "object", "properties": {"image_path": {"type": "string"}}},
+    output_schema={"type": "object"},
+    risk_level="LOW",
+    allowed_roles=["admin", "operator", "viewer"],
+    sandbox_required=False,
+    network_required=False,
+    handler=_run_ocr_handler,
+))
+
+tool_registry.register_tool(ToolDefinition(
+    name="analyze_scanned_document",
+    description="Extract structured key-values, sections, and low-confidence anti-hallucination flags from a scanned document.",
+    input_schema={"type": "object", "properties": {"image_path": {"type": "string"}}},
+    output_schema={"type": "object"},
+    risk_level="LOW",
+    allowed_roles=["admin", "operator", "viewer"],
+    sandbox_required=False,
+    network_required=False,
+    handler=_analyze_scanned_document_handler,
+))
+
+tool_registry.register_tool(ToolDefinition(
+    name="analyze_engineering_drawing",
+    description="Extract equipment tags, instruments, valves, annotations, and schematics from P&ID diagrams.",
+    input_schema={"type": "object", "properties": {"image_path": {"type": "string"}}},
+    output_schema={"type": "object"},
+    risk_level="LOW",
+    allowed_roles=["admin", "operator", "viewer"],
+    sandbox_required=False,
+    network_required=False,
+    handler=_analyze_engineering_drawing_handler,
+))
+
+tool_registry.register_tool(ToolDefinition(
+    name="generate_visual_evidence",
+    description="Crop and generate a base64 visual evidence snippet for grounding verification.",
+    input_schema={"type": "object", "properties": {"bbox": {"type": "object"}}, "required": ["bbox"]},
+    output_schema={"type": "object"},
+    risk_level="LOW",
+    allowed_roles=["admin", "operator", "viewer"],
+    sandbox_required=False,
+    network_required=False,
+    handler=_generate_visual_evidence_handler,
+))
+

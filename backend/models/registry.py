@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_REASONING_MODEL = os.getenv("OLLAMA_REASONING_MODEL", "qwen2.5:1.5b")
 OLLAMA_CODING_MODEL = os.getenv("OLLAMA_CODING_MODEL", "qwen2.5-coder:1.5b")
-OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT", "120"))
+OLLAMA_VISION_MODEL = os.getenv("OLLAMA_VISION_MODEL", "llava")
+OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT", "300"))
 
 class TaskRequest(BaseModel):
     prompt: str
@@ -31,11 +32,11 @@ class TaskResponse(BaseModel):
 
 class ModelRegistry:
     """
-    Phase 2: model routing, scoring, and VRAM checks.
+    Phase 2/5: model routing, scoring, VRAM checks, and multimodal vision dispatch.
     """
 
     def __init__(self):
-        # Register models for Phase 2
+        # Register models for Phase 2 and Phase 5
         self.models = {
             OLLAMA_REASONING_MODEL: {
                 "modality": ["REASONING", "RAG"],
@@ -48,9 +49,15 @@ class ModelRegistry:
                 "vram_gb": 5.0,
                 "latency_profile": "low",
                 "capabilities": ["text-generation", "code-generation"]
+            },
+            OLLAMA_VISION_MODEL: {
+                "modality": ["VISION", "MULTIMODAL"],
+                "vram_gb": 6.0,
+                "latency_profile": "medium",
+                "capabilities": ["vision-understanding", "ocr-grounding", "image-analysis"]
             }
         }
-        # Mock available VRAM for Phase 2 testing
+        # Mock available VRAM for Phase 2/5 testing
         self.available_vram_gb = 12.0
 
     def check_vram_capacity(self, model_id: str) -> bool:
@@ -85,23 +92,39 @@ class ModelRegistry:
         best_model = max(scores, key=scores.get)
         return best_model if scores[best_model] > 0 else OLLAMA_REASONING_MODEL
 
-    def classify_task(self, prompt: str) -> str:
+    def classify_task(self, prompt: str, has_image: bool = False) -> str:
         """
-        Simple keyword classifier for Phase 2.
-        Returns 'CODING' if code-related keywords are found, else 'REASONING'.
+        Keyword & modality classifier.
+        Returns 'VISION', 'CODING', or 'REASONING'.
         """
-        keywords = {"python", "code", "debug", "script", "function", "bash", "sql", "query", "react", "regex", "java"}
+        if has_image:
+            return "VISION"
+        keywords_coding = {"python", "code", "debug", "script", "function", "bash", "sql", "query", "react", "regex", "java"}
+        keywords_vision = {"image", "photo", "scan", "ocr", "p&id", "drawing", "schematic", "blueprint", "diagram"}
         prompt_lower = prompt.lower()
-        if any(kw in prompt_lower for kw in keywords):
+        if any(kw in prompt_lower for kw in keywords_vision):
+            return "VISION"
+        if any(kw in prompt_lower for kw in keywords_coding):
             return "CODING"
         return "REASONING"
 
-    def route_task(self, prompt: str) -> str:
+    def route_vision_task(self, prompt: str, has_image: bool = True) -> str:
         """
-        Phase 2/3: Route the task to the best model based on classification.
+        Phase 5 (M2): Direct route for vision & multimodal tasks.
+        """
+        scores = self.score_models("VISION")
+        selected = self.select_best_model(scores)
+        if not self.check_vram_capacity(selected):
+            selected = self.fallback_model("VISION")
+        logger.info(f"Routed vision task to model '{selected}'")
+        return selected
+
+    def route_task(self, prompt: str, has_image: bool = False) -> str:
+        """
+        Phase 2/3/5: Route the task to the best model based on classification.
         Falls back to fallback_model() if primary model has insufficient VRAM.
         """
-        task_type = self.classify_task(prompt)
+        task_type = self.classify_task(prompt, has_image=has_image)
         scores = self.score_models(task_type)
         selected = self.select_best_model(scores)
         if not self.check_vram_capacity(selected):
@@ -118,6 +141,7 @@ class ModelRegistry:
         throughput_map = {
             OLLAMA_REASONING_MODEL: 25.0,   # ~25 tok/s for 7B reasoning
             OLLAMA_CODING_MODEL:    20.0,   # ~20 tok/s for 7B coder
+            OLLAMA_VISION_MODEL:    15.0,   # ~15 tok/s for vision-language model
         }
         throughput = throughput_map.get(model_id, 15.0)
         estimated_ms = (prompt_token_count / throughput) * 1000
@@ -149,9 +173,10 @@ class ModelRegistry:
             logger.warning("Health check failed for model %s: %s", model_id, exc)
             return False
 
-    def execute_prompt(self, model_id: str, prompt: str) -> tuple[str, float]:
+    def execute_prompt(self, model_id: str, prompt: str, image_b64: str | None = None) -> tuple[str, float]:
         """
         Call Ollama /api/generate.
+        Supports multimodal image input (base64 string).
         Returns (response_text, latency_ms).
         Falls back to a mock if Ollama is unreachable.
         """
@@ -160,6 +185,9 @@ class ModelRegistry:
             "prompt": prompt,
             "stream": False,
         }
+        if image_b64:
+            payload["images"] = [image_b64]
+
         t0 = time.monotonic()
         try:
             with httpx.Client(timeout=OLLAMA_TIMEOUT) as client:
