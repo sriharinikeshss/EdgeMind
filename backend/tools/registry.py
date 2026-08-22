@@ -64,13 +64,11 @@ class ToolRegistry:
         return user_role in tool.allowed_roles
 
     def execute_tool(self, tool_name: str, user_role: str, arguments: dict[str, Any], db=None, username: str | None = None) -> Any:
-        """
-        Phase 3: Permission-check ΓåÆ invoke handler ΓåÆ log to DB.
-        """
         if not self.check_tool_permission(tool_name, user_role):
-            raise PermissionError(
-                f"Role '{user_role}' is not allowed to call tool '{tool_name}'."
-            )
+            err_msg = f"Role '{user_role}' is not allowed to call tool '{tool_name}'."
+            if db:
+                self.log_tool_call(db, arguments.get("task_id", "unknown"), tool_name, arguments, err_msg, status="DENIED")
+            raise PermissionError(err_msg)
         tool = self.get_tool(tool_name)
         if tool.handler is None:
             raise NotImplementedError(f"Tool '{tool_name}' has no handler registered yet.")
@@ -113,6 +111,7 @@ class ToolRegistry:
         """
         try:
             from database.models import ToolCall
+            from database.repo import log_audit_action
             record = ToolCall(
                 task_id=task_id,
                 tool_name=tool_name,
@@ -122,21 +121,33 @@ class ToolRegistry:
             )
             db.add(record)
             db.commit()
+            
+            # Log to AuditLog as expected by tests
+            log_audit_action(
+                db=db,
+                action="TOOL_CALL",
+                details=f"Task {task_id} called {tool_name} with status={status}",
+                user_id=None
+            )
         except Exception as exc:
             logger.warning("log_tool_call DB write failed: %s", exc)
 
     def validate_tool_arguments(self, tool_name: str, arguments: dict) -> bool:
-        """
-        Phase 4: validate arguments against the tool's input_schema.
-        Phase 3 stub: always returns True.
-        """
         tool = self.get_tool(tool_name)
-        required = tool.input_schema.get("required", [])
-        for key in required:
-            if key not in arguments:
-                logger.warning("Missing required argument '%s' for tool '%s'", key, tool_name)
-                return False
-        return True
+        try:
+            import jsonschema
+            jsonschema.validate(instance=arguments, schema=tool.input_schema)
+            return True
+        except ImportError:
+            required = tool.input_schema.get("required", [])
+            for key in required:
+                if key not in arguments:
+                    logger.warning("Missing required argument '%s' for tool '%s'", key, tool_name)
+                    return False
+            return True
+        except Exception as e:
+            logger.warning("Validation failed for %s: %s", tool_name, e)
+            return False
 
 
 # ΓöÇΓöÇ Module-level singleton ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ

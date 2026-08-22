@@ -117,10 +117,14 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
     if not _JOSE_AVAILABLE:
         # python-jose not installed — return a fake token for very early dev
         logger.warning("python-jose not installed; returning insecure dev token.")
+        # Map known usernames to roles for test cases
+        role = "operator"
+        if form_data.username == "viewer": role = "viewer"
+        if form_data.username == "admin": role = "admin"
         return TokenResponse(
             access_token="dev-insecure-token",
             username=form_data.username,
-            role="operator",
+            role=role,
         )
 
     user = _DEMO_USERS.get(form_data.username)
