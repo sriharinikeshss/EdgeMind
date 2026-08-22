@@ -276,7 +276,7 @@ def _calculator_handler(expression: str, **kwargs) -> float:
     import operator
     allowed_ops = {
         ast.Add: operator.add, ast.Sub: operator.sub,
-        ast.Mult: operator.mult, ast.Div: operator.truediv,
+        ast.Mult: operator.mul, ast.Div: operator.truediv,
         ast.Pow: operator.pow, ast.BitXor: operator.xor,
         ast.USub: operator.neg
     }
