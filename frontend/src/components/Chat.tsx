@@ -1,17 +1,16 @@
-/**
- * Chat component — Phase 3 (M6).
+﻿/**
+ * Chat component ΓÇö Phase 5 (M6).
  *
- * Adds an "Agent Mode" toggle:
- *   - OFF → calls POST /api/tasks (direct single-shot, Phase 1/2)
- *   - ON  → calls POST /api/agent  (Planner→Executor→Validator loop, Phase 3)
- *           and renders the AgentTrace component below the response.
+ * Adds:
+ *   - Agent Mode toggle (Phase 3)
+ *   - Image & Scanned Document / P&ID upload flow (Phase 5)
+ *   - Interactive Visual Evidence rendering with Bounding Boxes & Confidence Badges (Phase 5)
  */
-import { useRef, useState } from 'react';
+import { useState, useRef, type ChangeEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { AgentTrace, type StepResult, type AgentEvent } from './AgentTrace';
+import { VisualEvidence, type MultimodalResult } from './VisualEvidence';
 import './Chat.css';
-
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // ~8MB client-side guard
 
 interface AgentTraceData {
   steps: StepResult[];
@@ -26,8 +25,9 @@ interface Message {
   text: string;
   model_used?: string;
   latency_ms?: number;
+  image_preview?: string;
+  multimodal_result?: MultimodalResult;
   trace?: AgentTraceData;
-  imageDataUrl?: string;
 }
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
@@ -38,62 +38,90 @@ export function Chat() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [agentMode, setAgentMode] = useState(false);
-  const [attachedImage, setAttachedImage] = useState<{ base64: string; dataUrl: string; filename: string } | null>(null);
-  const [attachError, setAttachError] = useState<string | null>(null);
+  const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // allow re-selecting the same file later
-    if (!file) return;
-
-    if (file.size > MAX_IMAGE_BYTES) {
-      setAttachError(`"${file.name}" is too large (max 8MB).`);
-      return;
+  const getHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
-    setAttachError(null);
+    return headers;
+  };
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      const base64 = dataUrl.split(',')[1] ?? '';
-      setAttachedImage({ base64, dataUrl, filename: file.name });
-    };
-    reader.readAsDataURL(file);
+  const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (uploadEvent) => {
+        setAttachedImage(uploadEvent.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeAttachedImage = () => {
+    setAttachedImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const sendMessage = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() && !attachedImage) return;
 
-    // An attached image only makes sense through the agent loop (Direct
-    // Mode's /api/tasks endpoint has no concept of images), so attaching a
-    // file implicitly routes this send through /api/agent regardless of
-    // the Agent Mode toggle's current value.
-    const useAgent = agentMode || !!attachedImage;
-
+    const currentImage = attachedImage;
     const userMessage: Message = {
       id: Date.now().toString(),
       sender: 'user',
-      text: input,
-      imageDataUrl: attachedImage?.dataUrl,
+      text: input || (currentImage ? 'Analyze uploaded image/document' : ''),
+      image_preview: currentImage || undefined,
     };
+
     setMessages(prev => [...prev, userMessage]);
     setInput('');
+    setAttachedImage(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setIsLoading(true);
 
     try {
-      if (useAgent) {
-        // Phase 3: full agent loop (Phase 5: optional attached image)
+      if (currentImage) {
+        // Phase 5 Multimodal Analysis pipeline
+        const visionResp = await fetch(`${API_URL}/api/vision/multimodal`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({
+            image_base64: currentImage,
+            task_type: 'auto',
+          }),
+        });
+        const visionData: MultimodalResult = await visionResp.json();
+
+        // Feed extracted visual data into reasoning agent / LLM
+        const promptWithGrounding = `${userMessage.text}\n\n${(visionData as any).grounding_prompt || ''}`;
+        const response = await fetch(`${API_URL}/api/tasks`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({ prompt: promptWithGrounding }),
+        });
+        const data = await response.json();
+
+        const agentMessage: Message = {
+          id: data.task_id || Date.now().toString(),
+          sender: 'agent',
+          text: data.response,
+          model_used: data.model_used || 'qwen2.5:1.5b',
+          latency_ms: data.latency_ms,
+          multimodal_result: visionData,
+          image_preview: currentImage,
+        };
+        setMessages(prev => [...prev, agentMessage]);
+      } else if (agentMode) {
+        // Phase 3: full agent loop
         const response = await fetch(`${API_URL}/api/agent`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...authHeader },
-          body: JSON.stringify({
-            prompt: userMessage.text,
-            image_base64: attachedImage?.base64,
-            filename: attachedImage?.filename,
-          }),
+          headers: getHeaders(),
+          body: JSON.stringify({ prompt: userMessage.text }),
         });
         const data = await response.json();
 
@@ -113,7 +141,7 @@ export function Chat() {
         // Phase 1/2: direct single-shot
         const response = await fetch(`${API_URL}/api/tasks`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...authHeader },
+          headers: getHeaders(),
           body: JSON.stringify({ prompt: userMessage.text }),
         });
         const data = await response.json();
@@ -135,13 +163,12 @@ export function Chat() {
       ]);
     } finally {
       setIsLoading(false);
-      setAttachedImage(null);
     }
   };
 
   return (
     <div className="chat-container">
-      {/* Agent Mode toggle */}
+      {/* Mode bar */}
       <div className="chat-mode-bar">
         <label className="mode-toggle">
           <input
@@ -150,25 +177,34 @@ export function Chat() {
             onChange={e => setAgentMode(e.target.checked)}
           />
           <span className={`mode-label ${agentMode ? 'agent' : 'direct'}`}>
-            {agentMode ? '🤖 Agent Mode (Planner → Executor → Validator)' : '⚡ Direct Mode'}
+            {agentMode ? '≡ƒñû Agent Mode (Planner ΓåÆ Executor ΓåÆ Validator)' : 'ΓÜí Direct Mode'}
           </span>
         </label>
+        <span className="multimodal-indicator">≡ƒæü∩╕Å Multimodal OCR/P&ID Enabled</span>
       </div>
 
       <div className="chat-history">
         {messages.map(msg => (
           <div key={msg.id} className={`message ${msg.sender}`}>
-            {msg.imageDataUrl && (
-              <img className="message-thumbnail" src={msg.imageDataUrl} alt="Attached" />
+            {msg.image_preview && (
+              <div className="chat-image-attachment">
+                <img src={msg.image_preview} alt="Attached input" />
+              </div>
             )}
             <div className="message-content">{msg.text}</div>
             {msg.model_used && (
               <div className={`model-badge ${msg.model_used.includes('coder') ? 'coder' : 'reasoning'}`}>
-                🤖 {msg.model_used}
+                ≡ƒñû {msg.model_used}
                 {msg.latency_ms !== undefined && (
-                  <span className="latency"> · {Math.round(msg.latency_ms)}ms</span>
+                  <span className="latency"> ┬╖ {Math.round(msg.latency_ms)}ms</span>
                 )}
               </div>
+            )}
+            {msg.multimodal_result && (
+              <VisualEvidence
+                imageSrc={msg.image_preview}
+                result={msg.multimodal_result}
+              />
             )}
             {msg.trace && (
               <AgentTrace
@@ -188,41 +224,33 @@ export function Chat() {
           </div>
         )}
       </div>
-      {(attachedImage || attachError) && (
-        <div className="attach-bar">
-          {attachedImage && (
-            <span className="attach-chip">
-              <img className="attach-thumbnail" src={attachedImage.dataUrl} alt={attachedImage.filename} />
-              {attachedImage.filename}
-              <button
-                type="button"
-                className="attach-chip-remove"
-                onClick={() => setAttachedImage(null)}
-                aria-label="Remove attached image"
-              >
-                ✕
-              </button>
-            </span>
-          )}
-          {attachError && <span className="attach-error">{attachError}</span>}
+
+      {/* Attachment Preview bar */}
+      {attachedImage && (
+        <div className="attachment-bar">
+          <div className="attachment-preview">
+            <img src={attachedImage} alt="Attachment thumbnail" />
+            <span>Image attached (Document / P&ID)</span>
+          </div>
+          <button className="remove-attachment-btn" onClick={removeAttachedImage}>Γ£ò</button>
         </div>
       )}
+
       <div className="chat-input-area">
         <input
-          ref={fileInputRef}
           type="file"
-          accept="image/*"
-          onChange={handleFileSelect}
+          ref={fileInputRef}
+          onChange={handleImageUpload}
+          accept="image/*,application/pdf"
           style={{ display: 'none' }}
         />
         <button
           type="button"
-          className="attach-button"
+          className="attach-btn"
           onClick={() => fileInputRef.current?.click()}
-          disabled={isLoading}
-          title="Attach a scanned document or image"
+          title="Attach Scanned Document or P&ID Schematic"
         >
-          📎
+          ≡ƒô╖
         </button>
         <textarea
           value={input}
@@ -233,10 +261,18 @@ export function Chat() {
               sendMessage();
             }
           }}
-          placeholder={agentMode ? 'Give the agent a multi-step task (Shift+Enter for newline)…' : 'Ask EdgeMind…'}
-          rows={3}
+          placeholder={
+            attachedImage
+              ? 'Ask a question about this document/diagram...'
+              : agentMode
+              ? 'Give the agent a multi-step task (Shift+Enter for newline)ΓÇª'
+              : 'Ask EdgeMindΓÇª'
+          }
+          rows={2}
         />
-        <button onClick={sendMessage} disabled={isLoading}>Send</button>
+        <button onClick={sendMessage} disabled={isLoading || (!input.trim() && !attachedImage)}>
+          Send
+        </button>
       </div>
     </div>
   );

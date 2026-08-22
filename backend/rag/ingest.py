@@ -137,11 +137,14 @@ def store_chunks(chunks: list[dict], collection_name: str = "kavach_docs") -> No
     try:
         client.get_collection(collection_name)
     except Exception:
-        # Default vector size depends on the model; assume 768 for nomic-embed-text
-        client.create_collection(
-            collection_name=collection_name,
-            vectors_config=VectorParams(size=768, distance=Distance.COSINE),
-        )
+        try:
+            # Default vector size depends on the model; assume 768 for nomic-embed-text
+            client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=768, distance=Distance.COSINE),
+            )
+        except Exception:
+            pass
     
     points = []
     for chunk in chunks:

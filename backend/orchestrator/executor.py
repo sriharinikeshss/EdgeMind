@@ -169,7 +169,12 @@ class Executor:
                     tool_name, user_role=self.user_role, arguments=params, db=self.db, username=self.username
                 )
                 if isinstance(output, dict):
-                    clean_output = output.get("stdout") if output.get("stdout") is not None else str(output)
+                    if output.get("grounding_prompt"):
+                        clean_output = output["grounding_prompt"]
+                    elif output.get("stdout") is not None:
+                        clean_output = output["stdout"]
+                    else:
+                        clean_output = str(output)
                 else:
                     clean_output = output
                 return {"success": True, "output": clean_output, "tool": tool_name}

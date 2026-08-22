@@ -6,7 +6,7 @@
  *
  * Phase 9: Replace the localStorage approach with Keycloak OIDC / HttpOnly cookies.
  */
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 
 interface UserInfo {
   username: string;

@@ -1,5 +1,5 @@
 """
-Tool Registry — Phase 3 full implementation (M5).
+Tool Registry ΓÇö Phase 3 full implementation (M5).
 
 Formalizes register_tool(), check_tool_permission(), execute_tool(),
 log_tool_call() (writes to tool_calls table), and registers the first
@@ -58,31 +58,16 @@ class ToolRegistry:
     def check_tool_permission(self, tool_name: str, user_role: str) -> bool:
         """
         Returns True if user_role is allowed to call tool_name.
-        Delegates to the Security Engine (backend/security/engine.py) so
-        RBAC lives in one place, not scattered inline checks.
+        Phase 4 will wire to full RBAC engine (M6).
         """
-        from security.engine import authorize_tool
         tool = self.get_tool(tool_name)
-        return authorize_tool(tool_name, user_role, tool.allowed_roles)
+        return user_role in tool.allowed_roles
 
-    def execute_tool(
-        self, tool_name: str, user_role: str, arguments: dict[str, Any], db=None, username: str | None = None
-    ) -> Any:
+    def execute_tool(self, tool_name: str, user_role: str, arguments: dict[str, Any], db=None) -> Any:
         """
-        Phase 3/4: Permission-check → invoke handler → log to DB (tool_calls + audit_logs).
-        Raises PermissionError (not retried by the executor) on an RBAC denial.
+        Phase 3: Permission-check ΓåÆ invoke handler ΓåÆ log to DB.
         """
         if not self.check_tool_permission(tool_name, user_role):
-            if db:
-                self.log_tool_call(
-                    db=db,
-                    task_id=arguments.get("task_id", "unknown"),
-                    tool_name=tool_name,
-                    arguments=arguments,
-                    result=None,
-                    status="DENIED",
-                    username=username or user_role,
-                )
             raise PermissionError(
                 f"Role '{user_role}' is not allowed to call tool '{tool_name}'."
             )
@@ -100,7 +85,6 @@ class ToolRegistry:
                     arguments=arguments,
                     result=result,
                     status="COMPLETED",
-                    username=username or user_role,
                 )
             return result
         except Exception as exc:
@@ -112,7 +96,6 @@ class ToolRegistry:
                     arguments=arguments,
                     result=None,
                     status="FAILED",
-                    username=username or user_role,
                 )
             raise
 
@@ -124,12 +107,9 @@ class ToolRegistry:
         arguments: dict,
         result: Any,
         status: str = "COMPLETED",
-        username: str | None = None,
     ) -> None:
         """
-        Phase 3/4 (M5): Write a tool call record to the tool_calls table,
-        and mirror it into audit_logs so every tool call is auditable
-        (DoD: "all tool calls appear in tool_calls table and audit log").
+        Phase 3 (M5): Write a tool call record to the tool_calls table.
         """
         try:
             from database.models import ToolCall
@@ -145,52 +125,32 @@ class ToolRegistry:
         except Exception as exc:
             logger.warning("log_tool_call DB write failed: %s", exc)
 
-        try:
-            from database.repo import log_audit_action
-            log_audit_action(
-                db=db,
-                action="TOOL_CALL",
-                details=f"tool={tool_name} task={task_id} status={status}",
-                user_id=username,
-            )
-        except Exception as exc:
-            logger.warning("log_tool_call audit write failed: %s", exc)
-
     def validate_tool_arguments(self, tool_name: str, arguments: dict) -> bool:
         """
-        Phase 4: validate arguments against the tool's input_schema using jsonschema.
+        Phase 4: validate arguments against the tool's input_schema.
+        Phase 3 stub: always returns True.
         """
         tool = self.get_tool(tool_name)
-        try:
-            import jsonschema
-            jsonschema.validate(instance=arguments, schema=tool.input_schema)
-            return True
-        except ImportError:
-            required = tool.input_schema.get("required", [])
-            for key in required:
-                if key not in arguments:
-                    logger.warning("Missing required argument '%s' for tool '%s'", key, tool_name)
-                    return False
-            return True
-        except Exception as e:
-            logger.warning("Validation failed for tool '%s': %s", tool_name, e)
-            return False
+        required = tool.input_schema.get("required", [])
+        for key in required:
+            if key not in arguments:
+                logger.warning("Missing required argument '%s' for tool '%s'", key, tool_name)
+                return False
+        return True
 
 
-# ── Module-level singleton ────────────────────────────────────────────────────
+# ΓöÇΓöÇ Module-level singleton ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 tool_registry = ToolRegistry()
 
 
-# ── Register built-in Phase 3 tools ──────────────────────────────────────────
+# ΓöÇΓöÇ Register built-in Phase 3 tools ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 def _execute_python_handler(code: str = None, script: str = None, prompt: str = None, timeout_seconds: int = 10, **kwargs) -> dict:
-    from models.registry import registry, OLLAMA_CODING_MODEL
-    from sandbox.manager import sandbox_manager
-
     c = code or script
     if not c:
         p = prompt or kwargs.get("action") or "Write a python script."
         # Auto-generate the code using the coding model
+        from models.registry import registry, OLLAMA_CODING_MODEL
         model_id = OLLAMA_CODING_MODEL
         sys_prompt = "You are a Python expert. Output ONLY valid Python code inside a ```python block. Do not include explanations. Ensure the code prints its final output so it can be captured."
         full_prompt = f"{sys_prompt}\n\nTask: {p}"
@@ -204,35 +164,12 @@ def _execute_python_handler(code: str = None, script: str = None, prompt: str = 
         else:
             c = output.replace("```", "").strip()
 
-    if not c:
-        return {"stdout": "No code or prompt provided.", "stderr": "", "exit_code": -1}
-
-    # Execute code in sandbox
-    sandbox_id = sandbox_manager.create_sandbox(task_id=kwargs.get("task_id", "manual_run"))
-    try:
-        res = sandbox_manager.execute_in_sandbox(sandbox_id, c, timeout_seconds=timeout_seconds)
-    finally:
-        sandbox_manager.destroy_sandbox(sandbox_id)
-
-    # Format response to include both the Python code snippet and the execution stdout
-    stdout_text = (res.get("stdout") or "").strip()
-    stderr_text = (res.get("stderr") or "").strip()
-
+    from sandbox.manager import sandbox_manager
+    res = sandbox_manager.execute_python(c, timeout_seconds=timeout_seconds)
     # If Python executed successfully but produced empty output (no print statements), generate a textual response
-    if res.get("exit_code") == 0 and not stdout_text and not stderr_text:
-        stdout_text = "<Execution finished with no output. Did you forget to print() your result?>"
-
-    output_lines = [f"```python\n{c}\n```"]
-    if stdout_text:
-        output_lines.append(f"**Execution Output:**\n```\n{stdout_text}\n```")
-    if stderr_text:
-        output_lines.append(f"**Execution Errors:**\n```\n{stderr_text}\n```")
-
-    return {
-        "stdout": "\n\n".join(output_lines),
-        "stderr": stderr_text,
-        "exit_code": res.get("exit_code", 0)
-    }
+    if res.get("exit_code") == 0 and not (res.get("stdout") or "").strip() and not (res.get("stderr") or "").strip():
+        res["stdout"] = "<Execution finished with no output. Did you forget to print() your result?>"
+    return res
 
 
 def _rag_search_handler(query: str = None, prompt: str = None, top_k: int = 5, collection: str = "kavach_docs", **kwargs) -> list[dict]:
@@ -253,18 +190,7 @@ def _direct_llm_handler(prompt: str = None, query: str = None, **kwargs) -> str:
 tool_registry.register_tool(ToolDefinition(
     name="execute_python",
     description="Execute Python code in a subprocess sandbox.",
-    # Deliberately no "required": ["code"] — the handler falls back to
-    # generating code from "prompt"/"script"/the step's action text when
-    # "code" is absent (a planner step that only describes what to run,
-    # rather than inlining code, is a normal and expected case).
-    input_schema={
-        "type": "object",
-        "properties": {
-            "code": {"type": "string"},
-            "script": {"type": "string"},
-            "prompt": {"type": "string"},
-        },
-    },
+    input_schema={"type": "object", "properties": {"code": {"type": "string"}, "script": {"type": "string"}, "prompt": {"type": "string"}}},
     output_schema={"type": "object"},
     risk_level="HIGH",
     allowed_roles=["admin", "operator"],
@@ -297,6 +223,8 @@ tool_registry.register_tool(ToolDefinition(
     handler=_direct_llm_handler,
 ))
 
+
+# ── Register Phase 4 Tools ────────────────────────────────────────────────────
 
 def _read_file_handler(path: str, **kwargs) -> str:
     try:
@@ -333,68 +261,11 @@ def _calculator_handler(expression: str, **kwargs) -> float:
             raise TypeError('Unsupported math expression')
     try:
         return eval_node(ast.parse(expression, mode='eval').body)
-    except Exception as e:
+    except Exception:
         return float('nan')
 
 def _query_db_handler(query: str, **kwargs) -> str:
     return f"Stub DB result for {query}"
-
-
-def _analyze_scanned_document_handler(image_base64: str = None, filename: str = None, threshold: float = 0.6, **kwargs) -> dict:
-    import base64
-    from ocr.preprocess import preprocess_image_bytes
-    from ocr.processor import run_ocr, calculate_ocr_confidence, flag_low_confidence_regions
-
-    if not image_base64:
-        return {"stdout": "No image provided.", "status": "error"}
-
-    try:
-        image_bytes = base64.b64decode(image_base64)
-    except Exception as exc:
-        return {"stdout": f"Base64 decode failed: {exc}", "status": "error"}
-
-    pre = preprocess_image_bytes(image_bytes)
-    if pre["status"] != "ok":
-        return {"stdout": f"Preprocessing failed: {pre.get('message')}", "status": "error"}
-
-    ocr_result = run_ocr(pre["image_bytes"])
-    if ocr_result["status"] != "ok":
-        return {"stdout": f"OCR failed: {ocr_result.get('message')}", "status": "error"}
-
-    confidence = calculate_ocr_confidence(ocr_result)
-    flagged = flag_low_confidence_regions(ocr_result, threshold=threshold)
-    text = ocr_result.get("text", "")
-
-    lines = [
-        f"**Extracted text**{f' ({filename})' if filename else ''}:",
-        "```",
-        text or "(no text detected)",
-        "```",
-        f"Overall confidence: {confidence:.0%}",
-    ]
-    if flagged:
-        lines.append(f"\n⚠️ {len(flagged)} low-confidence region(s) (below {threshold:.0%}):")
-        lines += [f"- \"{f['text']}\" ({f['confidence']:.0%})" for f in flagged[:20]]
-        if len(flagged) > 20:
-            lines.append(f"...and {len(flagged) - 20} more.")
-
-    return {
-        "stdout": "\n".join(lines),
-        "raw_text": text,
-        "confidence": confidence,
-        "flagged_regions": flagged,
-        "status": "ok",
-    }
-
-
-def _analyze_engineering_drawing_handler(**kwargs) -> dict:
-    return {
-        "stdout": (
-            "Engineering-drawing/P&ID analysis requires a vision-language model, "
-            "which is not yet configured in this deployment."
-        ),
-        "status": "unavailable",
-    }
 
 tool_registry.register_tool(ToolDefinition(
     name="read_file",
@@ -422,7 +293,7 @@ tool_registry.register_tool(ToolDefinition(
 
 tool_registry.register_tool(ToolDefinition(
     name="calculator",
-    description="Evaluate math expression.",
+    description="Evaluate a math expression safely.",
     input_schema={"type": "object", "properties": {"expression": {"type": "string"}}, "required": ["expression"]},
     output_schema={"type": "number"},
     risk_level="LOW",
@@ -444,18 +315,61 @@ tool_registry.register_tool(ToolDefinition(
     handler=_query_db_handler
 ))
 
+
+# ── Register Phase 5 Multimodal / Vision Tools ───────────────────────────────
+
+def _run_ocr_handler(image_bytes: bytes = None, image_path: str = None, **kwargs) -> dict:
+    from ocr.processor import run_ocr
+    from ocr.preprocess import preprocess_image
+    if image_path:
+        res = preprocess_image(image_path)
+        if res.get("status") == "ok":
+            image_bytes = res.get("image_bytes")
+    if not image_bytes:
+        return {"status": "error", "message": "No image_bytes or image_path provided."}
+    return run_ocr(image_bytes)
+
+
+def _analyze_scanned_document_handler(image_bytes: bytes = None, image_path: str = None, **kwargs) -> dict:
+    from vision.multimodal_processor import analyze_scanned_document
+    target = image_bytes or image_path
+    if not target:
+        return {"status": "error", "message": "No image provided for document analysis."}
+    return analyze_scanned_document(target)
+
+
+def _analyze_engineering_drawing_handler(image_bytes: bytes = None, image_path: str = None, **kwargs) -> dict:
+    from vision.multimodal_processor import analyze_engineering_drawing
+    target = image_bytes or image_path
+    if not target:
+        return {"status": "error", "message": "No image provided for engineering drawing analysis."}
+    return analyze_engineering_drawing(target)
+
+
+def _generate_visual_evidence_handler(image_bytes: bytes = None, image_path: str = None, bbox: dict = None, label: str = "", **kwargs) -> dict:
+    from vision.multimodal_processor import generate_visual_evidence
+    target = image_bytes or image_path
+    if not target or not bbox:
+        return {"status": "error", "message": "image and bbox are required to generate visual evidence."}
+    return generate_visual_evidence(target, bbox, label=label)
+
+
+tool_registry.register_tool(ToolDefinition(
+    name="run_ocr",
+    description="Run OCR text and word-level bounding box extraction on an image.",
+    input_schema={"type": "object", "properties": {"image_path": {"type": "string"}}},
+    output_schema={"type": "object"},
+    risk_level="LOW",
+    allowed_roles=["admin", "operator", "viewer"],
+    sandbox_required=False,
+    network_required=False,
+    handler=_run_ocr_handler,
+))
+
 tool_registry.register_tool(ToolDefinition(
     name="analyze_scanned_document",
-    description="OCR a scanned document/image and flag low-confidence text regions.",
-    input_schema={
-        "type": "object",
-        "properties": {
-            "image_base64": {"type": "string"},
-            "filename": {"type": "string"},
-            "threshold": {"type": "number"},
-        },
-        "required": ["image_base64"],
-    },
+    description="Extract structured key-values, sections, and low-confidence anti-hallucination flags from a scanned document.",
+    input_schema={"type": "object", "properties": {"image_path": {"type": "string"}}},
     output_schema={"type": "object"},
     risk_level="LOW",
     allowed_roles=["admin", "operator", "viewer"],
@@ -466,12 +380,8 @@ tool_registry.register_tool(ToolDefinition(
 
 tool_registry.register_tool(ToolDefinition(
     name="analyze_engineering_drawing",
-    description="[Unavailable] Analyze P&ID/engineering drawings — requires a vision-language model not yet configured.",
-    input_schema={
-        "type": "object",
-        "properties": {"image_base64": {"type": "string"}},
-        "required": ["image_base64"],
-    },
+    description="Extract equipment tags, instruments, valves, annotations, and schematics from P&ID diagrams.",
+    input_schema={"type": "object", "properties": {"image_path": {"type": "string"}}},
     output_schema={"type": "object"},
     risk_level="LOW",
     allowed_roles=["admin", "operator", "viewer"],
@@ -479,3 +389,16 @@ tool_registry.register_tool(ToolDefinition(
     network_required=False,
     handler=_analyze_engineering_drawing_handler,
 ))
+
+tool_registry.register_tool(ToolDefinition(
+    name="generate_visual_evidence",
+    description="Crop and generate a base64 visual evidence snippet for grounding verification.",
+    input_schema={"type": "object", "properties": {"bbox": {"type": "object"}}, "required": ["bbox"]},
+    output_schema={"type": "object"},
+    risk_level="LOW",
+    allowed_roles=["admin", "operator", "viewer"],
+    sandbox_required=False,
+    network_required=False,
+    handler=_generate_visual_evidence_handler,
+))
+

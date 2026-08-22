@@ -6,7 +6,7 @@
  *
  * Default dev credentials:  admin / kavach123  or  operator / kavach123
  */
-import { useState, FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
 import './Login.css';
 
