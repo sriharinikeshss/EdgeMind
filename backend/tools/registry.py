@@ -150,19 +150,22 @@ def _execute_python_handler(code: str = None, script: str = None, prompt: str = 
     from sandbox.manager import sandbox_manager
 
     c = code or script
-    p = prompt or ""
+    p = prompt or kwargs.get("action") or ""
 
     # If explicit code was not provided, use LLM to generate Python code for the prompt
     if not c and p:
-        model_id = registry.route_task(p)
-        gen_prompt = f"Write ONLY executable Python code to solve this request. Include print() statements to display results. Do NOT include Markdown formatting or explanations.\nRequest: {p}"
-        raw_code, _ = registry.execute_prompt(model_id, gen_prompt)
-        c = raw_code.strip()
-        if c.startswith("```"):
-            lines = c.split("\n")[1:]
-            if lines and lines[-1].strip().endswith("```"):
-                lines = lines[:-1]
-            c = "\n".join(lines).strip()
+        model_id = registry.coding_model
+        sys_prompt = "You are a Python expert. Output ONLY valid Python code inside a ```python block. Do not include explanations. Ensure the code prints its final output so it can be captured."
+        full_prompt = f"{sys_prompt}\n\nTask: {p}"
+        output, _ = registry.execute_prompt(model_id, full_prompt)
+        
+        # Extract python code from markdown block
+        import re
+        match = re.search(r"```python\s*(.*?)\s*```", output, re.DOTALL | re.IGNORECASE)
+        if match:
+            c = match.group(1)
+        else:
+            c = output.replace("```", "").strip()
 
     if not c:
         return {"stdout": "No code or prompt provided.", "stderr": "", "exit_code": -1}
@@ -173,6 +176,10 @@ def _execute_python_handler(code: str = None, script: str = None, prompt: str = 
     # Format response to include both the Python code snippet and the execution stdout
     stdout_text = (res.get("stdout") or "").strip()
     stderr_text = (res.get("stderr") or "").strip()
+
+    # If Python executed successfully but produced empty output (no print statements), generate a textual response
+    if res.get("exit_code") == 0 and not stdout_text and not stderr_text:
+        stdout_text = "<Execution finished with no output. Did you forget to print() your result?>"
 
     output_lines = [f"```python\n{c}\n```"]
     if stdout_text:

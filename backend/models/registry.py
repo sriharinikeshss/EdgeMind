@@ -15,8 +15,8 @@ from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_REASONING_MODEL = os.getenv("OLLAMA_REASONING_MODEL", "qwen2.5:7b")
-OLLAMA_CODING_MODEL = os.getenv("OLLAMA_CODING_MODEL", "qwen2.5-coder:7b")
+OLLAMA_REASONING_MODEL = os.getenv("OLLAMA_REASONING_MODEL", "qwen2.5:1.5b")
+OLLAMA_CODING_MODEL = os.getenv("OLLAMA_CODING_MODEL", "qwen2.5-coder:1.5b")
 OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT", "120"))
 
 class TaskRequest(BaseModel):
@@ -171,6 +171,8 @@ class ModelRegistry:
                 logger.info("Ollama responded in %.0f ms (model=%s)", latency_ms, model_id)
                 return response_text, latency_ms
         except Exception as exc:  # noqa: BLE001
+            if os.getenv("OLLAMA_MOCK_FALLBACK", "false").lower() != "true":
+                raise
             latency_ms = (time.monotonic() - t0) * 1000
             logger.warning(
                 "Ollama unreachable (%s). Using mock fallback. Latency so far: %.0f ms",
@@ -182,6 +184,27 @@ class ModelRegistry:
                 f"Response from {model_id} for prompt: '{prompt[:80]}...'"
             )
             return mock_text, latency_ms
+
+    def execute_embedding(self, model_id: str, prompt: str) -> list[float]:
+        """
+        Execute an embedding request against the local Ollama instance.
+        Throws exception on failure (unless mock fallback is configured).
+        """
+        payload = {
+            "model": model_id,
+            "prompt": prompt,
+        }
+        try:
+            with httpx.Client(timeout=OLLAMA_TIMEOUT) as client:
+                resp = client.post(f"{OLLAMA_BASE_URL}/api/embeddings", json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+                return data.get("embedding", [])
+        except Exception as exc:
+            if os.getenv("OLLAMA_MOCK_FALLBACK", "false").lower() != "true":
+                raise
+            logger.warning("Ollama unreachable for embedding. Using mock zero vector.")
+            return [0.0] * 768
 
 # Module-level singleton
 registry = ModelRegistry()

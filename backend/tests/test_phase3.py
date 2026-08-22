@@ -133,8 +133,8 @@ def test_executor_step_failure_propagation():
 
     # Monkeypatch execute_step to use local registry
     original = ex.execute_step
-    def patched_execute(step, tool_registry=None):
-        return original(step, local_registry)
+    def patched_execute(step, tool_registry=None, task_id="unknown"):
+        return original(step, local_registry, task_id=task_id)
     ex.execute_step = patched_execute
 
     result = ex.execute_plan(plan)

@@ -47,8 +47,10 @@ class AgentResponse(BaseModel):
     events: list[dict]
 
 
+from api.auth import get_current_user, UserInfo
+
 @router.post("/agent", response_model=AgentResponse)
-def run_agent(req: AgentRequest, db: Session = Depends(get_db)):
+def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     """
     Full Phase 3 agent loop:
     CREATED → CLASSIFIED → PLANNED → EXECUTING → VALIDATING → COMPLETED/FAILED
@@ -96,7 +98,7 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db)):
         # 4. EXECUTE
         sm.transition(TaskStatus.EXECUTING)
         sm.persist_task_state(db)
-        executor = Executor(db_session=db)
+        executor = Executor(db_session=db, user_role=current_user.role)
         execution_result = executor.execute_plan(plan, sm)
 
         # Collect step results
@@ -118,14 +120,16 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db)):
         final_output = "\n".join(
             str(r.output or "") for r in step_results if r.success
         )
-        sm.transition(TaskStatus.VALIDATING)
-        sm.persist_task_state(db)
-        validation_passed = validator.validate_answer(task_id, final_output, req.expected_schema)
+        validation_passed = False
+        if execution_result["status"] == "COMPLETED":
+            sm.transition(TaskStatus.VALIDATING)
+            sm.persist_task_state(db)
+            validation_passed = validator.validate_answer(task_id, final_output, req.expected_schema)
 
         # 6. COMPLETE or FAIL based on execution + validation
         if execution_result["status"] == "COMPLETED" and validation_passed:
             sm.transition(TaskStatus.COMPLETED)
-        else:
+        elif sm.status != TaskStatus.FAILED:
             sm.transition(TaskStatus.FAILED)
         sm.persist_task_state(db)
 
