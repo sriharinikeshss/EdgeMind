@@ -1,25 +1,60 @@
-import uuid
-from fastapi import APIRouter
+"""
+POST /api/tasks — Phase 1 implementation.
+
+Creates a task record, calls the local LLM (via model registry),
+updates the record to COMPLETED, and returns the full response.
+"""
+import logging
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from database.session import get_db
+from database.models import Task
 from models.registry import registry, TaskRequest, TaskResponse
-# In real application, we would use a DB session here to save to backend/database/models.py
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+
+def create_task_record(db: Session, prompt: str) -> Task:
+    """Insert a new Task row with status CREATED."""
+    task = Task(description=prompt, status="CREATED")
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    logger.info("Task created: id=%s", task.id)
+    return task
+
+
+def update_task_record(db: Session, task: Task, model_used: str, response: str) -> Task:
+    """Update an existing Task row to COMPLETED."""
+    task.status = "COMPLETED"
+    task.model_used = model_used
+    task.response = response
+    db.commit()
+    db.refresh(task)
+    logger.info("Task completed: id=%s model=%s", task.id, model_used)
+    return task
+
+
 @router.post("/tasks", response_model=TaskResponse)
-def create_task(req: TaskRequest):
-    task_id = str(uuid.uuid4())
-    
-    # 1. Store task in DB with status CREATED (Mocked)
-    
-    # 2. Call local model (No router yet, just direct call)
+def create_task(req: TaskRequest, db: Session = Depends(get_db)):
+    # 1. Persist task with status CREATED
+    task = create_task_record(db, req.prompt)
+
+    # 2. Route + call local model (no planner yet — Phase 1 is direct single-shot)
     model_id = registry.route_task(req.prompt)
-    model_response = registry.execute_prompt(model_id, req.prompt)
-    
-    # 3. Update task in DB with status COMPLETED (Mocked)
-    
+    model_response, latency_ms = registry.execute_prompt(model_id, req.prompt)
+
+    # 3. Persist completed task
+    task = update_task_record(db, task, model_id, model_response)
+
     return TaskResponse(
-        task_id=task_id,
-        status="COMPLETED",
+        task_id=task.id,
+        status=task.status,
         response=model_response,
-        model_used=model_id
+        model_used=model_id,
+        latency_ms=latency_ms,
     )
+

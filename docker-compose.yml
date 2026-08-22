@@ -11,6 +11,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d edgemind"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   qdrant:
     image: qdrant/qdrant:latest
@@ -31,6 +36,23 @@ services:
     volumes:
       - minio_data:/data
 
+  # ── Local LLM inference server (Phase 1 — M2) ───────────────────────────
+  # Pull a model after first boot: docker exec -it <container> ollama pull qwen2.5:7b
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # To use a GPU: add the deploy block below and ensure nvidia-container-toolkit is installed
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
   backend:
     build: ./backend
     ports:
@@ -39,12 +61,21 @@ services:
       - DATABASE_URL=postgresql://admin:password@postgres:5432/edgemind
       - QDRANT_URL=http://qdrant:6333
       - MINIO_URL=http://minio:9000
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=qwen2.5:7b
+      - JWT_SECRET_KEY=kavach-dev-secret-change-in-production
     depends_on:
-      - postgres
-      - qdrant
-      - minio
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      minio:
+        condition: service_started
+      ollama:
+        condition: service_started
     volumes:
       - ./backend:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
     build: ./frontend
@@ -62,3 +93,4 @@ volumes:
   postgres_data:
   qdrant_data:
   minio_data:
+  ollama_data:

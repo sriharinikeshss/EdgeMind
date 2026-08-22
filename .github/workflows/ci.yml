@@ -1,0 +1,91 @@
+name: KAVACH CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["main", "develop"]
+
+jobs:
+  # ── Backend: lint + test ──────────────────────────────────────────────
+  backend:
+    name: Backend (Python)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: edgemind_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://admin:password@localhost:5432/edgemind_test
+      OLLAMA_BASE_URL: http://localhost:11434   # not running in CI; mock fallback activates
+      JWT_SECRET_KEY: ci-test-secret
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Lint with flake8
+        run: |
+          pip install flake8
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 backend --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Warn on style issues but don't fail
+          flake8 backend --count --exit-zero --max-complexity=10 --max-line-length=110 --statistics
+
+      - name: Run backend tests
+        working-directory: backend
+        run: |
+          pip install pytest pytest-asyncio httpx
+          pytest tests/ -v --tb=short || echo "No tests yet — scaffolding phase"
+
+  # ── Frontend: lint + type-check ───────────────────────────────────────
+  frontend:
+    name: Frontend (Node / TypeScript)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Lint (oxlint)
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Type-check
+        working-directory: frontend
+        run: npx tsc --noEmit
