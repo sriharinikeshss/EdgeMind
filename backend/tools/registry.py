@@ -127,16 +127,23 @@ class ToolRegistry:
 
     def validate_tool_arguments(self, tool_name: str, arguments: dict) -> bool:
         """
-        Phase 4: validate arguments against the tool's input_schema.
-        Phase 3 stub: always returns True.
+        Phase 4: validate arguments against the tool's input_schema using jsonschema.
         """
         tool = self.get_tool(tool_name)
-        required = tool.input_schema.get("required", [])
-        for key in required:
-            if key not in arguments:
-                logger.warning("Missing required argument '%s' for tool '%s'", key, tool_name)
-                return False
-        return True
+        try:
+            import jsonschema
+            jsonschema.validate(instance=arguments, schema=tool.input_schema)
+            return True
+        except ImportError:
+            required = tool.input_schema.get("required", [])
+            for key in required:
+                if key not in arguments:
+                    logger.warning("Missing required argument '%s' for tool '%s'", key, tool_name)
+                    return False
+            return True
+        except Exception as e:
+            logger.warning("Validation failed for tool '%s': %s", tool_name, e)
+            return False
 
 
 # ── Module-level singleton ────────────────────────────────────────────────────
@@ -146,11 +153,13 @@ tool_registry = ToolRegistry()
 # ── Register built-in Phase 3 tools ──────────────────────────────────────────
 
 def _execute_python_handler(code: str = None, script: str = None, prompt: str = None, timeout_seconds: int = 10, **kwargs) -> dict:
+    from models.registry import registry, OLLAMA_CODING_MODEL
+    from sandbox.manager import sandbox_manager
+
     c = code or script
     if not c:
         p = prompt or kwargs.get("action") or "Write a python script."
         # Auto-generate the code using the coding model
-        from models.registry import registry, OLLAMA_CODING_MODEL
         model_id = OLLAMA_CODING_MODEL
         sys_prompt = "You are a Python expert. Output ONLY valid Python code inside a ```python block. Do not include explanations. Ensure the code prints its final output so it can be captured."
         full_prompt = f"{sys_prompt}\n\nTask: {p}"
@@ -164,12 +173,31 @@ def _execute_python_handler(code: str = None, script: str = None, prompt: str = 
         else:
             c = output.replace("```", "").strip()
 
-    from sandbox.manager import sandbox_manager
+    if not c:
+        return {"stdout": "No code or prompt provided.", "stderr": "", "exit_code": -1}
+
+    # Execute code in sandbox
     res = sandbox_manager.execute_python(c, timeout_seconds=timeout_seconds)
+
+    # Format response to include both the Python code snippet and the execution stdout
+    stdout_text = (res.get("stdout") or "").strip()
+    stderr_text = (res.get("stderr") or "").strip()
+
     # If Python executed successfully but produced empty output (no print statements), generate a textual response
-    if res.get("exit_code") == 0 and not (res.get("stdout") or "").strip() and not (res.get("stderr") or "").strip():
-        res["stdout"] = "<Execution finished with no output. Did you forget to print() your result?>"
-    return res
+    if res.get("exit_code") == 0 and not stdout_text and not stderr_text:
+        stdout_text = "<Execution finished with no output. Did you forget to print() your result?>"
+
+    output_lines = [f"```python\n{c}\n```"]
+    if stdout_text:
+        output_lines.append(f"**Execution Output:**\n```\n{stdout_text}\n```")
+    if stderr_text:
+        output_lines.append(f"**Execution Errors:**\n```\n{stderr_text}\n```")
+
+    return {
+        "stdout": "\n\n".join(output_lines),
+        "stderr": stderr_text,
+        "exit_code": res.get("exit_code", 0)
+    }
 
 
 def _rag_search_handler(query: str = None, prompt: str = None, top_k: int = 5, collection: str = "kavach_docs", **kwargs) -> list[dict]:
@@ -221,4 +249,94 @@ tool_registry.register_tool(ToolDefinition(
     sandbox_required=False,
     network_required=False,
     handler=_direct_llm_handler,
+))
+
+
+def _read_file_handler(path: str, **kwargs) -> str:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        return str(e)
+
+def _write_file_handler(path: str, content: str, **kwargs) -> str:
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        return f"File written to {path}"
+    except Exception as e:
+        return str(e)
+
+def _calculator_handler(expression: str, **kwargs) -> float:
+    import ast
+    import operator
+    allowed_ops = {
+        ast.Add: operator.add, ast.Sub: operator.sub,
+        ast.Mult: operator.mult, ast.Div: operator.truediv,
+        ast.Pow: operator.pow, ast.BitXor: operator.xor,
+        ast.USub: operator.neg
+    }
+    def eval_node(node):
+        if isinstance(node, ast.Constant):
+            return node.n
+        elif isinstance(node, ast.BinOp):
+            return allowed_ops[type(node.op)](eval_node(node.left), eval_node(node.right))
+        elif isinstance(node, ast.UnaryOp):
+            return allowed_ops[type(node.op)](eval_node(node.operand))
+        else:
+            raise TypeError('Unsupported math expression')
+    try:
+        return eval_node(ast.parse(expression, mode='eval').body)
+    except Exception as e:
+        return float('nan')
+
+def _query_db_handler(query: str, **kwargs) -> str:
+    return f"Stub DB result for {query}"
+
+tool_registry.register_tool(ToolDefinition(
+    name="read_file",
+    description="Read contents of a file.",
+    input_schema={"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
+    output_schema={"type": "string"},
+    risk_level="LOW",
+    allowed_roles=["admin", "operator", "viewer"],
+    sandbox_required=False,
+    network_required=False,
+    handler=_read_file_handler
+))
+
+tool_registry.register_tool(ToolDefinition(
+    name="write_file",
+    description="Write content to a file.",
+    input_schema={"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]},
+    output_schema={"type": "string"},
+    risk_level="HIGH",
+    allowed_roles=["admin", "operator"],
+    sandbox_required=False,
+    network_required=False,
+    handler=_write_file_handler
+))
+
+tool_registry.register_tool(ToolDefinition(
+    name="calculator",
+    description="Evaluate math expression.",
+    input_schema={"type": "object", "properties": {"expression": {"type": "string"}}, "required": ["expression"]},
+    output_schema={"type": "number"},
+    risk_level="LOW",
+    allowed_roles=["admin", "operator", "viewer"],
+    sandbox_required=False,
+    network_required=False,
+    handler=_calculator_handler
+))
+
+tool_registry.register_tool(ToolDefinition(
+    name="query_db",
+    description="Stub database query tool.",
+    input_schema={"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]},
+    output_schema={"type": "string"},
+    risk_level="HIGH",
+    allowed_roles=["admin", "operator"],
+    sandbox_required=False,
+    network_required=True,
+    handler=_query_db_handler
 ))
