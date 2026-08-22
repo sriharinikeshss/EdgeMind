@@ -75,6 +75,8 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db)):
 
         # Log routing decision
         from models.registry import registry
+        from database.repo import log_audit_action
+        
         model_id = registry.route_task(req.prompt)
         log_model_selection(
             db=db,
@@ -82,6 +84,12 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db)):
             task_type=task_type,
             selected_model=model_id,
             routing_reason=f"Phase 3 agent loop classification: {task_type}",
+        )
+        
+        log_audit_action(
+            db=db,
+            action="MODEL_ROUTE",
+            details=f"Task {task_id} routed to {model_id} (Type: {task_type})"
         )
 
         # 4. EXECUTE

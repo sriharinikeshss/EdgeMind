@@ -30,7 +30,13 @@ def override_get_db():
     finally:
         db.close()
 
-app.dependency_overrides[get_db] = override_get_db
+@pytest.fixture(autouse=True)
+def setup_test_deps():
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_db] = override_get_db
+    yield
+    app.dependency_overrides.clear()
+
 client = TestClient(app)
 
 # ── 1. API & Database Integration Test ───────────────────────────────────────

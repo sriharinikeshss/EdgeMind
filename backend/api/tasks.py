@@ -48,13 +48,20 @@ def create_task(req: TaskRequest, db: Session = Depends(get_db)):
     model_id = registry.route_task(req.prompt)
     
     # Log the route decision to DB
-    from database.repo import log_model_selection
+    from database.repo import log_model_selection, log_audit_action
     log_model_selection(
         db=db, 
         task_id=task.id, 
         task_type=task_type, 
         selected_model=model_id,
         routing_reason=f"Classification: {task_type}"
+    )
+
+    # Also log to audit log per DoD
+    log_audit_action(
+        db=db,
+        action="MODEL_ROUTE",
+        details=f"Task {task.id} routed to {model_id} (Type: {task_type})"
     )
 
     # 3. Call local model
