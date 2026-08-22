@@ -157,10 +157,9 @@ def _execute_python_handler(code: str = None, script: str = None, prompt: str = 
     from sandbox.manager import sandbox_manager
 
     c = code or script
-    p = prompt or kwargs.get("action") or ""
-
-    # If explicit code was not provided, use LLM to generate Python code for the prompt
-    if not c and p:
+    if not c:
+        p = prompt or kwargs.get("action") or "Write a python script."
+        # Auto-generate the code using the coding model
         model_id = OLLAMA_CODING_MODEL
         sys_prompt = "You are a Python expert. Output ONLY valid Python code inside a ```python block. Do not include explanations. Ensure the code prints its final output so it can be captured."
         full_prompt = f"{sys_prompt}\n\nTask: {p}"
@@ -178,7 +177,11 @@ def _execute_python_handler(code: str = None, script: str = None, prompt: str = 
         return {"stdout": "No code or prompt provided.", "stderr": "", "exit_code": -1}
 
     # Execute code in sandbox
-    res = sandbox_manager.execute_python(c, timeout_seconds=timeout_seconds)
+    sandbox_id = sandbox_manager.create_sandbox(task_id=kwargs.get("task_id", "manual_run"))
+    try:
+        res = sandbox_manager.execute_in_sandbox(sandbox_id, c, timeout_seconds=timeout_seconds)
+    finally:
+        sandbox_manager.destroy_sandbox(sandbox_id)
 
     # Format response to include both the Python code snippet and the execution stdout
     stdout_text = (res.get("stdout") or "").strip()
