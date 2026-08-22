@@ -222,7 +222,7 @@ def _direct_llm_handler(prompt: str = None, query: str = None, **kwargs) -> str:
 tool_registry.register_tool(ToolDefinition(
     name="execute_python",
     description="Execute Python code in a subprocess sandbox.",
-    input_schema={"type": "object", "properties": {"code": {"type": "string"}}, "required": ["code"]},
+    input_schema={"type": "object", "properties": {"code": {"type": "string"}}, "required": []},
     output_schema={"type": "object"},
     risk_level="HIGH",
     allowed_roles=["admin", "operator"],
