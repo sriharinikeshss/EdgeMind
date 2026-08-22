@@ -71,7 +71,7 @@ export function Chat() {
           <div key={msg.id} className={`message ${msg.sender}`}>
             <div className="message-content">{msg.text}</div>
             {msg.model_used && (
-              <div className="model-badge">
+              <div className={`model-badge ${msg.model_used.includes('coder') ? 'coder' : 'reasoning'}`}>
                 🤖 {msg.model_used}
                 {msg.latency_ms !== undefined && (
                   <span className="latency"> · {Math.round(msg.latency_ms)}ms</span>

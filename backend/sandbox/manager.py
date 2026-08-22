@@ -50,13 +50,48 @@ class SandboxManager:
         """
         raise NotImplementedError("Sandbox destruction implemented in Phase 4.")
 
-    def execute_python(self, code: str) -> dict:
+    def execute_python(self, code: str, timeout_seconds: int = 10) -> dict:
         """
         Phase 2 bare version (no sandbox): runs code in a subprocess.
         Replaced by execute_in_sandbox() in Phase 4.
-        TODO Phase 2.
         """
-        raise NotImplementedError("Bare Python execution implemented in Phase 2.")
+        import subprocess
+        import tempfile
+        import os
+
+        # Write code to a temporary file
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as tf:
+            tf.write(code)
+            temp_path = tf.name
+
+        try:
+            # Run the file using python
+            result = subprocess.run(
+                ["python", temp_path],
+                capture_output=True,
+                text=True,
+                timeout=timeout_seconds,
+            )
+            return {
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "exit_code": result.returncode,
+            }
+        except subprocess.TimeoutExpired as exc:
+            return {
+                "stdout": exc.stdout.decode("utf-8", "replace") if exc.stdout else "",
+                "stderr": f"Execution timed out after {timeout_seconds}s.",
+                "exit_code": -1,
+            }
+        except Exception as exc:
+            return {
+                "stdout": "",
+                "stderr": str(exc),
+                "exit_code": -1,
+            }
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
 
 
 # Module-level singleton

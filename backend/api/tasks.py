@@ -43,11 +43,24 @@ def create_task(req: TaskRequest, db: Session = Depends(get_db)):
     # 1. Persist task with status CREATED
     task = create_task_record(db, req.prompt)
 
-    # 2. Route + call local model (no planner yet — Phase 1 is direct single-shot)
+    # 2. Phase 2: Classify and Route
+    task_type = registry.classify_task(req.prompt)
     model_id = registry.route_task(req.prompt)
+    
+    # Log the route decision to DB
+    from database.repo import log_model_selection
+    log_model_selection(
+        db=db, 
+        task_id=task.id, 
+        task_type=task_type, 
+        selected_model=model_id,
+        routing_reason=f"Classification: {task_type}"
+    )
+
+    # 3. Call local model
     model_response, latency_ms = registry.execute_prompt(model_id, req.prompt)
 
-    # 3. Persist completed task
+    # 4. Persist completed task
     task = update_task_record(db, task, model_id, model_response)
 
     return TaskResponse(

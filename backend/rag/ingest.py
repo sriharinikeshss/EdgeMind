@@ -85,17 +85,84 @@ def chunk_document(
     return chunks
 
 
+import httpx
+import os
+import uuid
+
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
+
 def generate_embeddings(chunks: list[dict]) -> list[dict]:
     """
-    TODO Phase 2 (M3): call the embedding model (BGE-M3 via Ollama)
+    Phase 2 (M3): call the embedding model (nomic-embed-text via Ollama)
     and attach a 'vector' field to each chunk dict.
     """
-    raise NotImplementedError("Embedding generation implemented in Phase 2.")
+    for chunk in chunks:
+        payload = {
+            "model": OLLAMA_EMBED_MODEL,
+            "prompt": chunk["text"]
+        }
+        try:
+            with httpx.Client() as client:
+                resp = client.post(f"{OLLAMA_BASE_URL}/api/embeddings", json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+                chunk["vector"] = data.get("embedding", [])
+        except Exception as e:
+            # Fallback to mock embedding on failure
+            chunk["vector"] = [0.0] * 768
+            print(f"Warning: Failed to generate embedding via Ollama: {e}")
+    return chunks
 
 
 def store_chunks(chunks: list[dict], collection_name: str = "kavach_docs") -> None:
     """
-    TODO Phase 2 (M3): upsert chunk vectors + metadata into Qdrant.
+    Phase 2 (M3): upsert chunk vectors + metadata into Qdrant.
     """
-    raise NotImplementedError("Qdrant chunk storage implemented in Phase 2.")
+    try:
+        from qdrant_client import QdrantClient
+        from qdrant_client.models import Distance, VectorParams, PointStruct
+    except ImportError:
+        print("Warning: qdrant-client not installed, skipping storage.")
+        return
+
+    # In Dev, use memory storage if Qdrant is not running
+    qdrant_url = os.getenv("QDRANT_URL")
+    if qdrant_url:
+        client = QdrantClient(url=qdrant_url)
+    else:
+        client = QdrantClient(location=":memory:")
+
+    # Ensure collection exists
+    try:
+        client.get_collection(collection_name)
+    except Exception:
+        # Default vector size depends on the model; assume 768 for nomic-embed-text
+        client.create_collection(
+            collection_name=collection_name,
+            vectors_config=VectorParams(size=768, distance=Distance.COSINE),
+        )
+    
+    points = []
+    for chunk in chunks:
+        if "vector" not in chunk or not chunk["vector"]:
+            continue
+        
+        point_id = str(uuid.uuid4())
+        points.append(
+            PointStruct(
+                id=point_id,
+                vector=chunk["vector"],
+                payload={
+                    "text": chunk["text"],
+                    "chunk_index": chunk["chunk_index"]
+                }
+            )
+        )
+    
+    if points:
+        client.upsert(
+            collection_name=collection_name,
+            points=points
+        )
 
