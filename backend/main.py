@@ -4,7 +4,7 @@ EdgeMind KAVACH API — main entry point.
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api import tasks, auth, agent, rag, vision
+from api import tasks, auth, agent, rag, vision, documents, artifacts
 from database.session import create_tables
 
 logging.basicConfig(
@@ -29,6 +29,8 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(agent.router, prefix="/api")
 app.include_router(rag.router, prefix="/api")
 app.include_router(vision.router, prefix="/api")
+app.include_router(documents.router, prefix="/api")
+app.include_router(artifacts.router, prefix="/api")
 
 
 @app.on_event("startup")

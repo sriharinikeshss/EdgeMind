@@ -172,11 +172,10 @@ def _execute_python_handler(code: str = None, script: str = None, prompt: str = 
     return res
 
 
-def _rag_search_handler(query: str = None, prompt: str = None, top_k: int = 5, collection: str = "kavach_docs", **kwargs) -> list[dict]:
+def _rag_search_handler(query: str = None, prompt: str = None, top_k: int = 5, collection: str = "kavach_docs", filters: dict = None, **kwargs) -> str:
     q = query or prompt or kwargs.get("text") or ""
-    from api.rag import _get_query_embedding, _search_qdrant
-    vec = _get_query_embedding(q)
-    return _search_qdrant(vec, collection, top_k)
+    from rag.retrieval import rag_search
+    return rag_search(q, filters=filters)
 
 
 def _direct_llm_handler(prompt: str = None, query: str = None, **kwargs) -> str:
@@ -202,8 +201,8 @@ tool_registry.register_tool(ToolDefinition(
 tool_registry.register_tool(ToolDefinition(
     name="rag_search",
     description="Retrieve relevant document chunks from Qdrant using semantic search.",
-    input_schema={"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]},
-    output_schema={"type": "array"},
+    input_schema={"type": "object", "properties": {"query": {"type": "string"}, "prompt": {"type": "string"}}},
+    output_schema={"type": "string"},
     risk_level="LOW",
     allowed_roles=["admin", "operator", "viewer"],
     sandbox_required=False,
@@ -345,4 +344,175 @@ tool_registry.register_tool(ToolDefinition(
     sandbox_required=False,
     network_required=False,
     handler=_generate_visual_evidence_handler,
+))
+
+
+# ── Phase 7 — Artifact generation tools ──────────────────────────────────────
+# Output dicts from these handlers are artifact metadata (id/filename/content_type/
+# file_hash/path), not free text — the Executor special-cases ARTIFACT_TOOL_NAMES
+# so this dict survives intact into the step result and gets written to the
+# `artifacts` table instead of being stringified like a normal tool's output.
+
+ARTIFACT_TOOL_NAMES = {"generate_docx", "generate_xlsx", "generate_pdf", "generate_csv", "generate_json"}
+
+
+def _generate_docx_handler(
+    task_id: str = "unknown", title: str = "Untitled", content: str = "",
+    table: dict | None = None, citations: list | None = None, **kwargs
+) -> dict:
+    from artifacts.docx_writer import DocxWriter
+    # Fall back to accumulated prior-step context (injected as "prompt" by the
+    # Executor) when the plan gives a title but no explicit body text — the
+    # common case where a report artifact follows reasoning/RAG steps.
+    content = content or kwargs.get("prompt") or ""
+    return DocxWriter().create_docx(task_id=task_id, title=title, content=content, table=table, citations=citations)
+
+
+def _generate_xlsx_handler(
+    task_id: str = "unknown", title: str = "Untitled", headers: list | None = None,
+    rows: list | None = None, citations: list | None = None, **kwargs
+) -> dict:
+    from artifacts.xlsx_writer import XlsxWriter
+    return XlsxWriter().create_xlsx(
+        task_id=task_id, title=title, headers=headers or [], rows=rows or [], citations=citations
+    )
+
+
+def _generate_pdf_handler(
+    task_id: str = "unknown", title: str = "Untitled", content: str = "",
+    table: dict | None = None, citations: list | None = None, **kwargs
+) -> dict:
+    from artifacts.pdf_writer import PdfWriter
+    content = content or kwargs.get("prompt") or ""
+    return PdfWriter().create_pdf(task_id=task_id, title=title, content=content, table=table, citations=citations)
+
+
+def _generate_csv_handler(
+    task_id: str = "unknown", title: str = "Untitled", headers: list | None = None,
+    rows: list | None = None, **kwargs
+) -> dict:
+    from artifacts.data_writer import CsvWriter
+    return CsvWriter().create_csv(task_id=task_id, title=title, headers=headers or [], rows=rows or [])
+
+
+def _generate_json_handler(task_id: str = "unknown", title: str = "Untitled", data: dict | list | None = None, **kwargs) -> dict:
+    from artifacts.data_writer import JsonWriter
+    return JsonWriter().create_json(task_id=task_id, title=title, data=data if data is not None else {})
+
+
+tool_registry.register_tool(ToolDefinition(
+    name="generate_docx",
+    description=(
+        "Generate a downloadable DOCX report artifact with headings, body text, an optional table, "
+        "and citations. If 'content' is omitted, prior-step context is used as the body."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "title": {"type": "string"},
+            "content": {"type": "string"},
+            "citations": {
+                "type": "array",
+                "description": (
+                    "Optional RAG citations to append as a References section. Each item accepts "
+                    "either {source, text, page} or {doc_id, text}."
+                ),
+                "items": {"type": "object"},
+            },
+        },
+        "required": ["title"],
+    },
+    output_schema={"type": "object"},
+    risk_level="LOW",
+    allowed_roles=["admin", "operator"],
+    sandbox_required=False,
+    network_required=False,
+    handler=_generate_docx_handler,
+))
+
+tool_registry.register_tool(ToolDefinition(
+    name="generate_xlsx",
+    description="Generate a downloadable XLSX spreadsheet artifact from tabular data, with an optional References sheet.",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "title": {"type": "string"},
+            "headers": {"type": "array"},
+            "rows": {"type": "array"},
+            "citations": {
+                "type": "array",
+                "description": "Optional RAG citations appended as a References sheet.",
+                "items": {"type": "object"},
+            },
+        },
+        "required": ["title", "headers", "rows"],
+    },
+    output_schema={"type": "object"},
+    risk_level="LOW",
+    allowed_roles=["admin", "operator"],
+    sandbox_required=False,
+    network_required=False,
+    handler=_generate_xlsx_handler,
+))
+
+tool_registry.register_tool(ToolDefinition(
+    name="generate_pdf",
+    description=(
+        "Generate a downloadable PDF report artifact with a title, body text, an optional table, and "
+        "citations. If 'content' is omitted, prior-step context is used as the body."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "title": {"type": "string"},
+            "content": {"type": "string"},
+            "citations": {
+                "type": "array",
+                "description": (
+                    "Optional RAG citations to append as a References section. Each item accepts "
+                    "either {source, text, page} or {doc_id, text}."
+                ),
+                "items": {"type": "object"},
+            },
+        },
+        "required": ["title"],
+    },
+    output_schema={"type": "object"},
+    risk_level="LOW",
+    allowed_roles=["admin", "operator"],
+    sandbox_required=False,
+    network_required=False,
+    handler=_generate_pdf_handler,
+))
+
+tool_registry.register_tool(ToolDefinition(
+    name="generate_csv",
+    description="Generate a downloadable CSV artifact from tabular data.",
+    input_schema={
+        "type": "object",
+        "properties": {"title": {"type": "string"}, "headers": {"type": "array"}, "rows": {"type": "array"}},
+        "required": ["title", "headers", "rows"],
+    },
+    output_schema={"type": "object"},
+    risk_level="LOW",
+    allowed_roles=["admin", "operator"],
+    sandbox_required=False,
+    network_required=False,
+    handler=_generate_csv_handler,
+))
+
+tool_registry.register_tool(ToolDefinition(
+    name="generate_json",
+    description="Generate a downloadable JSON artifact from structured data.",
+    input_schema={
+        "type": "object",
+        "properties": {"title": {"type": "string"}, "data": {"type": ["object", "array"]}},
+        "required": ["title", "data"],
+    },
+    output_schema={"type": "object"},
+    risk_level="LOW",
+    allowed_roles=["admin", "operator"],
+    sandbox_required=False,
+    network_required=False,
+    handler=_generate_json_handler,
 ))

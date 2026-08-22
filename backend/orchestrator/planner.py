@@ -46,11 +46,16 @@ Each step object must have:
       * "analyze_engineering_drawing": Use FIRST if analyzing a P&ID, schematic, blueprint, or engineering drawing.
       * "run_ocr": Use for low-level OCR text extraction on images.
       * "execute_python": Use ONLY if the step requires executing actual Python code or calculations.
-      * "rag_search": Use ONLY if searching stored SOPs, manuals, or documents.
+      * "rag_search": Use ONLY if searching stored SOPs, manuals, or documents (params: query).
+      * "generate_docx": Use LAST if the user wants a downloadable report/document/approval note (params: title, content, optional table, optional citations).
+      * "generate_xlsx": Use LAST if the user wants a downloadable spreadsheet/table export (params: title, headers, rows).
+      * "generate_pdf": Use LAST if the user explicitly wants a PDF file (params: title, content, optional table).
+      * "generate_csv"/"generate_json": Use LAST for a downloadable CSV or JSON data export (params: title, headers/rows or data).
   - "depends_on": list of step_ids this step depends on (can be empty list)
   - "params": dict of parameters for the tool call (can be empty dict)
 
 Anti-Hallucination Rule: Whenever an image, scan, or drawing is involved, you MUST insert the appropriate vision extraction step before any reasoning or summarization step.
+Deliverable Rule: Whenever the user asks for a downloadable file/report/document/spreadsheet, the LAST step MUST use one of the generate_* artifact tools, depending on the step(s) whose output it should contain.
 
 Only output valid JSON, no extra text.
 Example for multimodal document task:
@@ -100,6 +105,45 @@ class Planner:
             modalities.append("rag")
 
         return list(dict.fromkeys(modalities))
+
+    def determine_required_outputs(self, description: str) -> str | None:
+        """
+        Phase 7 (M1): detects whether the user is asking for a downloadable
+        deliverable file, and if so, which artifact type to produce.
+        Returns one of 'docx', 'xlsx', 'pdf', 'csv', 'json', or None.
+        """
+        desc_lower = description.lower()
+        if any(kw in desc_lower for kw in ["excel", "spreadsheet", "xlsx"]):
+            return "xlsx"
+        if "csv" in desc_lower:
+            return "csv"
+        if "pdf" in desc_lower:
+            return "pdf"
+        if any(kw in desc_lower for kw in ["json file", "json output", "export as json", "export to json"]):
+            return "json"
+        if any(kw in desc_lower for kw in [
+            "docx", "word document", "draft a report", "generate a report", "write a report",
+            "draft an approval note", "generate a document", "create a document", "downloadable",
+            "generate a docx", "export as a document",
+        ]):
+            return "docx"
+        return None
+
+    def _build_artifact_step_params(self, output_type: str, description: str) -> tuple[str, dict]:
+        """Best-effort artifact tool + params when auto-appending a deliverable
+        step the LLM's own plan omitted. Tabular formats (xlsx/csv) start with
+        empty headers/rows here — a real LLM-authored plan step supplies those
+        directly from the task's data; this is only the safety-net fallback."""
+        title = (description.strip()[:80] or "Report")
+        if output_type == "xlsx":
+            return "generate_xlsx", {"title": title, "headers": [], "rows": []}
+        if output_type == "csv":
+            return "generate_csv", {"title": title, "headers": [], "rows": []}
+        if output_type == "pdf":
+            return "generate_pdf", {"title": title}
+        if output_type == "json":
+            return "generate_json", {"title": title, "data": {}}
+        return "generate_docx", {"title": title}
 
     def classify_task(self, description: str, file_attachments: list[str] | None = None) -> str:
         """
@@ -173,6 +217,24 @@ class Planner:
                 )
             ]
 
+        elif "rag" in modalities:
+            return [
+                PlanStep(
+                    step_id="step_1",
+                    action="Search SOPs and manuals for relevant information",
+                    tool="rag_search",
+                    depends_on=[],
+                    params={"query": description},
+                ),
+                PlanStep(
+                    step_id="step_2",
+                    action="Formulate final answer using citations",
+                    tool="direct_llm",
+                    depends_on=["step_1"],
+                    params={"prompt": f"Based on the retrieved RAG documents, address the user request: {description}"},
+                )
+            ]
+
         # Standard reasoning single-step
         return [
             PlanStep(
@@ -233,6 +295,23 @@ class Planner:
                 if s.tool in ["run_ocr", "analyze_scanned_document", "analyze_engineering_drawing"]:
                     if "image_path" not in s.params:
                         s.params["image_path"] = file_attachments[0]
+
+        # Phase 7 Deliverable Safeguard: if the user asked for a downloadable
+        # artifact but the plan (LLM or fallback) didn't end with a generate_*
+        # step, append one depending on every existing step so its content
+        # falls back to the accumulated context (see Executor.execute_step).
+        from tools.registry import ARTIFACT_TOOL_NAMES
+
+        required_output = self.determine_required_outputs(description)
+        if required_output and not any(s.tool in ARTIFACT_TOOL_NAMES for s in steps):
+            tool_name, params = self._build_artifact_step_params(required_output, description)
+            steps.append(PlanStep(
+                step_id=f"step_{len(steps) + 1}",
+                action=f"Generate downloadable {required_output.upper()} artifact",
+                tool=tool_name,
+                depends_on=[s.step_id for s in steps],
+                params=params,
+            ))
 
         return ExecutionPlan(task_id=task_id, steps=steps)
 

@@ -4,7 +4,7 @@ Tables: users, tasks, task_steps, artifacts
 """
 import uuid
 import datetime
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Integer
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -60,6 +60,7 @@ class Artifact(Base):
     id = Column(String, primary_key=True, default=_uuid)
     task_id = Column(String, ForeignKey("tasks.id"), nullable=False)
     filename = Column(String, nullable=False)
+    content_type = Column(String, nullable=True)
     file_hash = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
@@ -87,6 +88,15 @@ class ToolCall(Base):
     result = Column(Text, nullable=True)
     status = Column(String, nullable=False, default="PENDING")
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class Document(Base):
+    __tablename__ = "documents"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    filename = Column(String, nullable=False)
+    version = Column(Integer, nullable=False, default=1)
+    uploaded_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 
 class AuditLog(Base):

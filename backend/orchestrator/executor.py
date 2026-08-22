@@ -70,6 +70,7 @@ class Executor:
                 self.context[step.step_id] = step_result.get("output", "")
                 self._emit("step_completed", {"step_id": step.step_id, "output": str(step_result.get("output", ""))[:500]})
                 self._write_step_to_db(plan.task_id, step, step_result)
+                self._write_artifact_if_generated(plan.task_id, step, step_result)
             else:
                 step.status = "FAILED"
                 self._emit("step_failed", {
@@ -217,6 +218,43 @@ class Executor:
         step.params["correction_hint"] = reason
         from tools.registry import tool_registry
         return self.execute_step(step, tool_registry, task_id=task_id)
+
+    def _write_artifact_if_generated(self, task_id: str, step: PlanStep, result: dict) -> None:
+        """Phase 7: persist a generated artifact's metadata to the `artifacts`
+        table and emit an `artifact_created` trace event, when this step ran
+        one of the artifact-generation tools (generate_docx/xlsx/pdf/csv/json)."""
+        from tools.registry import ARTIFACT_TOOL_NAMES
+
+        if step.tool not in ARTIFACT_TOOL_NAMES:
+            return
+        meta = result.get("tool_data")
+        if not isinstance(meta, dict) or meta.get("status") != "ok" or not meta.get("file_hash"):
+            return
+
+        self._emit("artifact_created", {
+            "task_id": task_id,
+            "artifact_id": meta.get("id"),
+            "filename": meta.get("filename"),
+            "content_type": meta.get("content_type"),
+            "file_hash": meta.get("file_hash"),
+        })
+
+        if not self.db:
+            return
+        try:
+            from database.models import Artifact
+            artifact = Artifact(
+                id=meta.get("id"),
+                task_id=task_id,
+                filename=meta.get("filename"),
+                content_type=meta.get("content_type"),
+                file_hash=meta.get("file_hash"),
+            )
+            self.db.add(artifact)
+            self.db.commit()
+        except Exception as exc:
+            self.db.rollback()
+            logger.warning("Failed to write Artifact to DB: %s", exc)
 
     def _write_step_to_db(self, task_id: str, step: PlanStep, result: dict) -> None:
         """Write a completed/failed step record to task_steps table."""
