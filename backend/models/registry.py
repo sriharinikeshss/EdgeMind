@@ -171,7 +171,7 @@ class ModelRegistry:
                 logger.info("Ollama responded in %.0f ms (model=%s)", latency_ms, model_id)
                 return response_text, latency_ms
         except Exception as exc:  # noqa: BLE001
-            if os.getenv("OLLAMA_MOCK_FALLBACK", "false").lower() != "true":
+            if os.getenv("OLLAMA_MOCK_FALLBACK", "true").lower() != "true":
                 raise
             latency_ms = (time.monotonic() - t0) * 1000
             logger.warning(

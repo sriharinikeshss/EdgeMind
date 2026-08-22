@@ -150,8 +150,8 @@ def _execute_python_handler(code: str = None, script: str = None, prompt: str = 
     if not c:
         p = prompt or kwargs.get("action") or "Write a python script."
         # Auto-generate the code using the coding model
-        from models.registry import registry
-        model_id = registry.coding_model
+        from models.registry import registry, OLLAMA_CODING_MODEL
+        model_id = OLLAMA_CODING_MODEL
         sys_prompt = "You are a Python expert. Output ONLY valid Python code inside a ```python block. Do not include explanations. Ensure the code prints its final output so it can be captured."
         full_prompt = f"{sys_prompt}\n\nTask: {p}"
         output, _ = registry.execute_prompt(model_id, full_prompt)
