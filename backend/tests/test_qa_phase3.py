@@ -23,6 +23,12 @@ client = TestClient(app)
 def setup_db():
     app.dependency_overrides.clear()
     app.dependency_overrides[get_db] = override_get_db
+    
+    from api.auth import get_current_user, UserInfo
+    def override_get_current_user():
+        return UserInfo(username="admin", role="admin")
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    
     Base.metadata.create_all(bind=engine)
     yield
     # Cleanup tasks after

@@ -144,12 +144,17 @@ export function Chat() {
         )}
       </div>
       <div className="chat-input-area">
-        <input
-          type="text"
+        <textarea
           value={input}
           onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && sendMessage()}
-          placeholder={agentMode ? 'Give the agent a multi-step task…' : 'Ask EdgeMind…'}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              sendMessage();
+            }
+          }}
+          placeholder={agentMode ? 'Give the agent a multi-step task (Shift+Enter for newline)…' : 'Ask EdgeMind…'}
+          rows={3}
         />
         <button onClick={sendMessage} disabled={isLoading}>Send</button>
       </div>

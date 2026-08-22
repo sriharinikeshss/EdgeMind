@@ -148,26 +148,27 @@ tool_registry = ToolRegistry()
 def _execute_python_handler(code: str = None, script: str = None, prompt: str = None, timeout_seconds: int = 10, **kwargs) -> dict:
     c = code or script
     if not c:
-        p = prompt or ""
-        py_keywords = ["def ", "import ", "print(", "class "]
-        if any(kw in p for kw in py_keywords):
-            c = p
+        p = prompt or kwargs.get("action") or "Write a python script."
+        # Auto-generate the code using the coding model
+        from models.registry import registry
+        model_id = registry.coding_model
+        sys_prompt = "You are a Python expert. Output ONLY valid Python code inside a ```python block. Do not include explanations. Ensure the code prints its final output so it can be captured."
+        full_prompt = f"{sys_prompt}\n\nTask: {p}"
+        output, _ = registry.execute_prompt(model_id, full_prompt)
+        
+        # Extract python code from markdown block
+        import re
+        match = re.search(r"```python\s*(.*?)\s*```", output, re.DOTALL | re.IGNORECASE)
+        if match:
+            c = match.group(1)
         else:
-            from models.registry import registry
-            model_id = registry.route_task(p)
-            output, _ = registry.execute_prompt(model_id, p)
-            return {"stdout": output, "stderr": "", "exit_code": 0}
+            c = output.replace("```", "").strip()
 
     from sandbox.manager import sandbox_manager
     res = sandbox_manager.execute_python(c, timeout_seconds=timeout_seconds)
     # If Python executed successfully but produced empty output (no print statements), generate a textual response
     if res.get("exit_code") == 0 and not (res.get("stdout") or "").strip() and not (res.get("stderr") or "").strip():
-        p = prompt or code or script or ""
-        if p:
-            from models.registry import registry
-            model_id = registry.route_task(p)
-            output, _ = registry.execute_prompt(model_id, p)
-            res["stdout"] = output
+        res["stdout"] = "<Execution finished with no output. Did you forget to print() your result?>"
     return res
 
 

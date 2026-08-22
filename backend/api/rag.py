@@ -42,13 +42,8 @@ class RAGSearchResponse(BaseModel):
 def _get_query_embedding(query: str) -> list[float]:
     """Generate a query embedding via Ollama. Falls back to zero vector on failure."""
     try:
-        with httpx.Client(timeout=30.0) as client:
-            resp = client.post(
-                f"{OLLAMA_BASE_URL}/api/embeddings",
-                json={"model": OLLAMA_EMBED_MODEL, "prompt": query},
-            )
-            resp.raise_for_status()
-            return resp.json().get("embedding", [])
+        from models.registry import registry
+        return registry.execute_embedding(OLLAMA_EMBED_MODEL, query)
     except Exception as exc:
         logger.warning("Embedding generation failed: %s — using zero vector fallback", exc)
         return [0.0] * 768
