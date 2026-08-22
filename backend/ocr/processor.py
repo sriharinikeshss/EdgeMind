@@ -1,5 +1,5 @@
 """
-OCR Processing GÇö Phase 2/5 implementation (M4).
+OCR Processing Î“Ã‡Ã¶ Phase 2/5 implementation (M4).
 
 Runs OCR on given image bytes, calculates word/line level confidence scores,
 and extracts bounding box geometries for visual evidence grounding.
@@ -78,7 +78,7 @@ def run_ocr(image_bytes: bytes) -> dict:
         # Check if tesseract binary is missing on host/container
         err_msg = str(e).lower()
         if "tesseract is not installed" in err_msg or "not in your path" in err_msg or "no such file" in err_msg:
-            logger.warning("Tesseract binary not installed on system GÇö returning mock OCR fallback for test environment.")
+            logger.warning("Tesseract binary not installed on system Î“Ã‡Ã¶ returning mock OCR fallback for test environment.")
             mock_text = "INSPECTION REPORT\nDate: 2026-08-23\nStatus: PASSED\nPressure: 105 PSI\nValve V-101: OPERATIONAL\nTransmitter PT-202: ONLINE"
             mock_words = [
                 {"text": "INSPECTION", "confidence": 0.95, "bbox": {"x": 10, "y": 10, "w": 80, "h": 20}, "line_num": 1, "block_num": 1},

@@ -190,7 +190,7 @@ def _direct_llm_handler(prompt: str = None, query: str = None, **kwargs) -> str:
 tool_registry.register_tool(ToolDefinition(
     name="execute_python",
     description="Execute Python code in a subprocess sandbox.",
-    input_schema={"type": "object", "properties": {"code": {"type": "string"}, "script": {"type": "string"}, "prompt": {"type": "string"}}},
+    input_schema={"type": "object", "properties": {"code": {"type": "string"}}, },
     output_schema={"type": "object"},
     risk_level="HIGH",
     allowed_roles=["admin", "operator"],
@@ -224,7 +224,10 @@ tool_registry.register_tool(ToolDefinition(
 ))
 
 
-# ── Register Phase 4 Tools ────────────────────────────────────────────────────
+# ΓöÇΓöÇ Register Phase 5 Multimodal / Vision Tools ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+
+# -- Phase 4 Tools --
 
 def _read_file_handler(path: str, **kwargs) -> str:
     try:
@@ -242,81 +245,23 @@ def _write_file_handler(path: str, content: str, **kwargs) -> str:
         return str(e)
 
 def _calculator_handler(expression: str, **kwargs) -> float:
-    import ast
-    import operator
-    allowed_ops = {
-        ast.Add: operator.add, ast.Sub: operator.sub,
-        ast.Mult: operator.mul, ast.Div: operator.truediv,
-        ast.Pow: operator.pow, ast.BitXor: operator.xor,
-        ast.USub: operator.neg
-    }
+    import ast, operator
+    allowed_ops = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul, ast.Div: operator.truediv, ast.Pow: operator.pow, ast.USub: operator.neg}
     def eval_node(node):
-        if isinstance(node, ast.Constant):
-            return node.n
-        elif isinstance(node, ast.BinOp):
-            return allowed_ops[type(node.op)](eval_node(node.left), eval_node(node.right))
-        elif isinstance(node, ast.UnaryOp):
-            return allowed_ops[type(node.op)](eval_node(node.operand))
-        else:
-            raise TypeError('Unsupported math expression')
-    try:
-        return eval_node(ast.parse(expression, mode='eval').body)
-    except Exception:
-        return float('nan')
+        if isinstance(node, ast.Constant): return node.n
+        elif isinstance(node, ast.BinOp): return allowed_ops[type(node.op)](eval_node(node.left), eval_node(node.right))
+        elif isinstance(node, ast.UnaryOp): return allowed_ops[type(node.op)](eval_node(node.operand))
+        raise TypeError("Unsupported")
+    try: return eval_node(ast.parse(expression, mode="eval").body)
+    except Exception: return float("nan")
 
 def _query_db_handler(query: str, **kwargs) -> str:
     return f"Stub DB result for {query}"
 
-tool_registry.register_tool(ToolDefinition(
-    name="read_file",
-    description="Read contents of a file.",
-    input_schema={"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
-    output_schema={"type": "string"},
-    risk_level="LOW",
-    allowed_roles=["admin", "operator", "viewer"],
-    sandbox_required=False,
-    network_required=False,
-    handler=_read_file_handler
-))
-
-tool_registry.register_tool(ToolDefinition(
-    name="write_file",
-    description="Write content to a file.",
-    input_schema={"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]},
-    output_schema={"type": "string"},
-    risk_level="HIGH",
-    allowed_roles=["admin", "operator"],
-    sandbox_required=False,
-    network_required=False,
-    handler=_write_file_handler
-))
-
-tool_registry.register_tool(ToolDefinition(
-    name="calculator",
-    description="Evaluate a math expression safely.",
-    input_schema={"type": "object", "properties": {"expression": {"type": "string"}}, "required": ["expression"]},
-    output_schema={"type": "number"},
-    risk_level="LOW",
-    allowed_roles=["admin", "operator", "viewer"],
-    sandbox_required=False,
-    network_required=False,
-    handler=_calculator_handler
-))
-
-tool_registry.register_tool(ToolDefinition(
-    name="query_db",
-    description="Stub database query tool.",
-    input_schema={"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]},
-    output_schema={"type": "string"},
-    risk_level="HIGH",
-    allowed_roles=["admin", "operator"],
-    sandbox_required=False,
-    network_required=True,
-    handler=_query_db_handler
-))
-
-
-# ── Register Phase 5 Multimodal / Vision Tools ───────────────────────────────
+tool_registry.register_tool(ToolDefinition(name="read_file", description="Read contents of a file.", input_schema={"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}, output_schema={"type":"string"}, risk_level="LOW", allowed_roles=["admin","operator","viewer"], sandbox_required=False, network_required=False, handler=_read_file_handler))
+tool_registry.register_tool(ToolDefinition(name="write_file", description="Write content to a file.", input_schema={"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}, output_schema={"type":"string"}, risk_level="HIGH", allowed_roles=["admin","operator"], sandbox_required=False, network_required=False, handler=_write_file_handler))
+tool_registry.register_tool(ToolDefinition(name="calculator", description="Safely evaluate a math expression.", input_schema={"type":"object","properties":{"expression":{"type":"string"}},"required":["expression"]}, output_schema={"type":"number"}, risk_level="LOW", allowed_roles=["admin","operator","viewer"], sandbox_required=False, network_required=False, handler=_calculator_handler))
+tool_registry.register_tool(ToolDefinition(name="query_db", description="Stub database query tool.", input_schema={"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}, output_schema={"type":"string"}, risk_level="HIGH", allowed_roles=["admin","operator"], sandbox_required=False, network_required=True, handler=_query_db_handler))
 
 def _run_ocr_handler(image_bytes: bytes = None, image_path: str = None, **kwargs) -> dict:
     from ocr.processor import run_ocr
@@ -401,4 +346,3 @@ tool_registry.register_tool(ToolDefinition(
     network_required=False,
     handler=_generate_visual_evidence_handler,
 ))
-

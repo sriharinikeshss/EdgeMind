@@ -1,5 +1,5 @@
 """
-Vision & Multimodal API — Phase 3 & 5 implementations (M4).
+Vision & Multimodal API ΓÇö Phase 3 & 5 implementations (M4).
 
 Endpoints:
 - POST /api/vision/analyze: Basic OCR text & confidence extraction.

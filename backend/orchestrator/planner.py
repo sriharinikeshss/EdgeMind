@@ -1,5 +1,5 @@
 """
-Planner GÇö Phase 3/5 implementation (M1).
+Planner Î“Ã‡Ã¶ Phase 3/5 implementation (M1).
 
 generate_plan() calls the reasoning model with a structured prompt,
 parses the JSON plan response into a DAG of PlanSteps.
@@ -225,11 +225,8 @@ class Planner:
         except Exception as exc:
             logger.info("Plan generation using intelligent fallback (%s)", exc)
             steps = self._generate_fallback_plan(description)
-
         # Phase 5: if image_base64 is provided, prepend a deterministic OCR step
-        # so the reasoning model always sees structured text, not raw pixel data
         if image_base64:
-            from orchestrator.planner import PlanStep
             steps.insert(0, PlanStep(
                 step_id="step_ocr",
                 action="OCR the uploaded scanned document",
@@ -293,4 +290,3 @@ class Planner:
                 sorted_steps.append(step)
 
         return ExecutionPlan(task_id=task_id, steps=sorted_steps)
-
