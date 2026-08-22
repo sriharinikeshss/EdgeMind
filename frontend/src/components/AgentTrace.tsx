@@ -43,6 +43,8 @@ const TOOL_ICON: Record<string, string> = {
   direct_llm: '🤖',
   direct_llm_fallback: '🤖',
   run_ocr: '👁️',
+  analyze_scanned_document: '👁️',
+  analyze_engineering_drawing: '🏗️',
 };
 
 export function AgentTrace({ steps, events, status, validationPassed }: AgentTraceProps) {

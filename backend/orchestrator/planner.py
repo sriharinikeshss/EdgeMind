@@ -43,7 +43,6 @@ Each step object must have:
       * "direct_llm": Use for summarization, checklists, reasoning, writing, and text analysis (Default for most steps).
       * "execute_python": Use ONLY if the step requires executing actual Python code or calculations.
       * "rag_search": Use ONLY if searching stored SOPs, manuals, or documents.
-      * "run_ocr": Use ONLY if reading scanned document images or PDFs.
   - "depends_on": list of step_ids this step depends on (can be empty list)
   - "params": dict of parameters for the tool call (can be empty dict)
 
@@ -81,11 +80,20 @@ class Planner:
             return "RAG"
         return "REASONING"
 
-    def generate_plan(self, task_id: str, description: str) -> ExecutionPlan:
+    def generate_plan(
+        self, task_id: str, description: str, image_base64: str | None = None, filename: str | None = None
+    ) -> ExecutionPlan:
         """
         Phase 3: call reasoning model to produce a structured step plan.
         Parses the JSON into a DAG of PlanSteps.
         Falls back to a single-step direct_llm plan if model is unavailable.
+
+        Phase 5: if image_base64 is provided, a deterministic OCR step is
+        prepended to whatever plan comes back (LLM-generated or fallback).
+        Modality detection is deterministic rather than LLM-decided because
+        the small local model cannot be trusted to reliably pick the right
+        tool for this — the reasoning model must only ever see the
+        structured extracted text, never the raw image.
         """
         from models.registry import registry
 
@@ -127,6 +135,15 @@ class Planner:
                     params={"prompt": description},
                 )
             ]
+
+        if image_base64:
+            steps.insert(0, PlanStep(
+                step_id="step_ocr",
+                action="OCR the uploaded scanned document",
+                tool="analyze_scanned_document",
+                depends_on=[],
+                params={"image_base64": image_base64, "filename": filename},
+            ))
 
         return ExecutionPlan(task_id=task_id, steps=steps)
 

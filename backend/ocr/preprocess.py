@@ -103,6 +103,45 @@ def preprocess_image(image_path: str) -> dict:
         return {"status": "error", "message": str(exc)}
 
 
+def preprocess_image_bytes(image_bytes: bytes) -> dict:
+    """
+    Preprocess raw image bytes (no file path) for downstream OCR.
+    Same pipeline and return schema as preprocess_image(), used when the
+    image arrives in-memory (e.g. a base64-decoded upload) rather than
+    as a file on disk.
+
+    Phase 5: shared by tools/registry.py's analyze_scanned_document tool
+    and api/vision.py's standalone endpoint, so preprocessing logic lives
+    in exactly one place.
+    """
+    if not _PIL_AVAILABLE:
+        return {
+            "status": "error",
+            "message": "Pillow not installed. Run: pip install Pillow",
+        }
+
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            original_size = img.size
+            processed = _pil_preprocess(img)
+            processed_size = processed.size
+
+            buf = io.BytesIO()
+            processed.save(buf, format="PNG")
+            processed_bytes = buf.getvalue()
+
+        return {
+            "status": "ok",
+            "image_bytes": processed_bytes,
+            "original_size": original_size,
+            "processed_size": processed_size,
+            "format": "PNG",
+        }
+    except Exception as exc:
+        logger.error("preprocess_image_bytes failed: %s", exc)
+        return {"status": "error", "message": str(exc)}
+
+
 def preprocess_pdf_page(pdf_path: str, page_index: int = 0) -> dict:
     """
     Extract and preprocess a single page from a PDF file.
@@ -153,10 +192,4 @@ def preprocess_pdf_page(pdf_path: str, page_index: int = 0) -> dict:
         return {"status": "error", "message": str(exc)}
 
 
-def calculate_ocr_confidence(ocr_result: dict) -> float:
-    """
-    TODO Phase 2/5 (M4): parse confidence scores from PaddleOCR/Tesseract
-    output and return an aggregate confidence in [0, 1].
-    """
-    raise NotImplementedError("OCR confidence calculation implemented in Phase 2.")
 

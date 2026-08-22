@@ -23,9 +23,10 @@ class Executor:
     Emits step events into an `events` list that can be streamed via WebSocket.
     """
 
-    def __init__(self, db_session=None, user_role: str = "operator"):
+    def __init__(self, db_session=None, user_role: str = "operator", username: str | None = None):
         self.db = db_session
         self.user_role = user_role
+        self.username = username
         self.events: list[dict] = []   # collected step events for WS streaming
         self.context: dict[str, Any] = {}  # accumulates tool outputs across steps
 
@@ -71,7 +72,11 @@ class Executor:
                 self._write_step_to_db(plan.task_id, step, step_result)
             else:
                 step.status = "FAILED"
-                self._emit("step_failed", {"step_id": step.step_id, "error": step_result.get("error", "unknown")})
+                self._emit("step_failed", {
+                    "step_id": step.step_id,
+                    "error": step_result.get("error", "unknown"),
+                    "permission_denied": step_result.get("permission_denied", False),
+                })
                 self._write_step_to_db(plan.task_id, step, step_result)
                 # DoD: a step that exhausts all retries must transition RETRYING → FAILED
                 # before the plan is reported failed.
@@ -96,6 +101,10 @@ class Executor:
             t_id = sm.task_id if sm else "unknown"
             result = self.execute_step(step, tool_registry, task_id=t_id)
             if result.get("success"):
+                return result
+            if result.get("permission_denied"):
+                # RBAC denials are not transient — retrying won't grant permission.
+                logger.warning("Step %s denied by RBAC — not retrying: %s", step.step_id, result.get("error"))
                 return result
             logger.warning("Step %s attempt %d/%d failed: %s", step.step_id, attempt, retries, result.get("error"))
             if attempt < retries:
@@ -156,7 +165,9 @@ class Executor:
             if registry and tool_name in registry.list_tools():
                 if not registry.validate_tool_arguments(tool_name, params):
                     return {"success": False, "error": f"Invalid arguments for {tool_name}", "tool": tool_name}
-                output = registry.execute_tool(tool_name, user_role=self.user_role, arguments=params, db=self.db)
+                output = registry.execute_tool(
+                    tool_name, user_role=self.user_role, arguments=params, db=self.db, username=self.username
+                )
                 if isinstance(output, dict):
                     clean_output = output.get("stdout") if output.get("stdout") is not None else str(output)
                 else:
@@ -169,6 +180,9 @@ class Executor:
                 output, _ = model_registry.execute_prompt(model_id, prompt)
                 return {"success": True, "output": output, "tool": "direct_llm_fallback"}
 
+        except PermissionError as exc:
+            logger.warning("Step %s denied by RBAC: %s", step.step_id, exc)
+            return {"success": False, "error": str(exc), "tool": tool_name, "permission_denied": True}
         except Exception as exc:
             logger.error("Step %s failed: %s", step.step_id, exc)
             return {"success": False, "error": str(exc), "tool": tool_name}

@@ -9,7 +9,7 @@ import logging
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from ocr.preprocess import preprocess_image as _preprocess_bytes
+from ocr.preprocess import preprocess_image_bytes
 from ocr.processor import run_ocr, calculate_ocr_confidence
 
 logger = logging.getLogger(__name__)
@@ -27,25 +27,6 @@ class VisionAnalyzeResponse(BaseModel):
     text: str
     confidence: float
     message: str | None = None
-
-
-def _preprocess_from_bytes(image_bytes: bytes) -> dict:
-    """Run Pillow preprocessing on raw bytes (no file path)."""
-    import io
-    try:
-        from PIL import Image, ImageOps, ImageFilter
-        img = Image.open(io.BytesIO(image_bytes))
-        img = img.convert("L")
-        img = ImageOps.autocontrast(img, cutoff=2)
-        img = img.filter(ImageFilter.SHARPEN)
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        return {
-            "status": "ok",
-            "image_bytes": buf.getvalue(),
-        }
-    except Exception as exc:
-        return {"status": "error", "message": str(exc)}
 
 
 @router.post("/vision/analyze", response_model=VisionAnalyzeResponse)
@@ -85,7 +66,7 @@ def analyze_vision(req: VisionAnalyzeRequest):
         )
 
     # Preprocess
-    preprocessed = _preprocess_from_bytes(image_bytes)
+    preprocessed = preprocess_image_bytes(image_bytes)
     if preprocessed["status"] != "ok":
         return VisionAnalyzeResponse(
             status="error",
