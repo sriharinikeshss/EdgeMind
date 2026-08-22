@@ -15,13 +15,12 @@ from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")  # default reasoning model
+OLLAMA_REASONING_MODEL = os.getenv("OLLAMA_REASONING_MODEL", "qwen2.5:1.5b")
+OLLAMA_CODING_MODEL = os.getenv("OLLAMA_CODING_MODEL", "qwen2.5-coder:1.5b")
 OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT", "120"))
-
 
 class TaskRequest(BaseModel):
     prompt: str
-
 
 class TaskResponse(BaseModel):
     task_id: str
@@ -30,16 +29,33 @@ class TaskResponse(BaseModel):
     model_used: str
     latency_ms: float = 0.0
 
-
 class ModelRegistry:
     """
-    Phase 1: single model, no routing yet.
-    Phase 2 will add route_task(), score_models(), check_vram_capacity() etc.
+    Phase 2: Multi-model registry and router.
     """
+    def __init__(self):
+        self.models = {
+            "reasoning": OLLAMA_REASONING_MODEL,
+            "coding": OLLAMA_CODING_MODEL
+        }
+
+    def classify_task(self, prompt: str) -> str:
+        """
+        Simple keyword classifier for Phase 2.
+        Returns 'coding' if code-related keywords are found, else 'reasoning'.
+        """
+        keywords = {"python", "code", "debug", "script", "function", "bash"}
+        prompt_lower = prompt.lower()
+        if any(kw in prompt_lower for kw in keywords):
+            return "coding"
+        return "reasoning"
 
     def route_task(self, prompt: str) -> str:
-        """Always returns the default reasoning model in Phase 1."""
-        return OLLAMA_MODEL
+        """Selects the best model ID for the given prompt."""
+        task_type = self.classify_task(prompt)
+        selected_model = self.models.get(task_type, self.models["reasoning"])
+        logger.info(f"Routed task to {task_type} model: {selected_model}")
+        return selected_model
 
     def execute_prompt(self, model_id: str, prompt: str) -> tuple[str, float]:
         """
@@ -74,7 +90,6 @@ class ModelRegistry:
                 f"Response from {model_id} for prompt: '{prompt[:80]}...'"
             )
             return mock_text, latency_ms
-
 
 # Module-level singleton
 registry = ModelRegistry()
