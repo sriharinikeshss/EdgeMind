@@ -5,6 +5,7 @@ Run with: pytest backend/tests/ -v
 """
 import sys
 import os
+from unittest.mock import patch
 
 # Ensure backend package is on the path when running from repo root
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -103,6 +104,7 @@ class TestModelRegistry:
         assert isinstance(model_id, str)
         assert len(model_id) > 0
 
+    @patch.dict('os.environ', {'OLLAMA_MOCK_FALLBACK': 'true'})
     def test_execute_prompt_returns_tuple(self):
         """Ollama won't be running in CI; mock fallback must still return a tuple."""
         reg = ModelRegistry()
