@@ -177,7 +177,11 @@ def _execute_python_handler(code: str = None, script: str = None, prompt: str = 
         return {"stdout": "No code or prompt provided.", "stderr": "", "exit_code": -1}
 
     # Execute code in sandbox
-    res = sandbox_manager.execute_python(c, timeout_seconds=timeout_seconds)
+    sandbox_id = sandbox_manager.create_sandbox(task_id=kwargs.get("task_id", "manual_run"))
+    try:
+        res = sandbox_manager.execute_in_sandbox(sandbox_id, c, timeout_seconds=timeout_seconds)
+    finally:
+        sandbox_manager.destroy_sandbox(sandbox_id)
 
     # Format response to include both the Python code snippet and the execution stdout
     stdout_text = (res.get("stdout") or "").strip()
