@@ -307,6 +307,14 @@ class Executor:
             "file_hash": meta.get("file_hash"),
         })
 
+        # Upload to MinIO
+        try:
+            from artifacts.minio_client import upload_file
+            if meta.get("path"):
+                upload_file("artifacts", f"{meta.get('id')}_{meta.get('filename')}", meta.get("path"))
+        except Exception as e:
+            logger.error("Failed to upload artifact to MinIO: %s", e)
+
         if not self.db:
             return
         try:
@@ -326,6 +334,14 @@ class Executor:
 
     def _write_step_to_db(self, task_id: str, step: PlanStep, result: dict) -> None:
         """Write a completed/failed step record to task_steps table."""
+        # Upload to MinIO
+        try:
+            from artifacts.minio_client import upload_file
+            if meta.get("path"):
+                upload_file("artifacts", f"{meta.get('id')}_{meta.get('filename')}", meta.get("path"))
+        except Exception as e:
+            logger.error("Failed to upload artifact to MinIO: %s", e)
+
         if not self.db:
             return
         try:

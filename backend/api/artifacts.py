@@ -55,7 +55,15 @@ def download_artifact(artifact_id: str, db: Session = Depends(get_db), current_u
 
     path = resolve_artifact_path(artifact.task_id, artifact.id, artifact.filename)
     if not os.path.isfile(path):
-        raise HTTPException(status_code=410, detail="Artifact file is missing from storage")
+        try:
+            from artifacts.minio_client import download_file
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            download_file("artifacts", f"{artifact.id}_{artifact.filename}", path)
+        except Exception as e:
+            logger.error("Failed to recover artifact from MinIO: %s", e)
+    
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=410, detail="Artifact file is missing from storage and MinIO")
 
     if is_encrypted_at_rest(path):
         from security.encryption import decrypt_file
@@ -87,6 +95,14 @@ def verify_artifact(artifact_id: str, db: Session = Depends(get_db), current_use
         raise HTTPException(status_code=404, detail="Artifact not found")
 
     path = resolve_artifact_path(artifact.task_id, artifact.id, artifact.filename)
+    if not os.path.isfile(path):
+        try:
+            from artifacts.minio_client import download_file
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            download_file("artifacts", f"{artifact.id}_{artifact.filename}", path)
+        except Exception as e:
+            logger.error("Failed to recover artifact from MinIO: %s", e)
+            
     if not os.path.isfile(path):
         return {"id": artifact_id, "status": "missing", "verified": False}
 

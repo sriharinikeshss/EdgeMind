@@ -57,6 +57,13 @@ async def upload_document(
     db.commit()
     db.refresh(doc)
 
+    # Store raw document in MinIO
+    try:
+        from artifacts.minio_client import upload_bytes
+        upload_bytes("documents", f"{doc.id}_{doc.filename}", content)
+    except Exception as e:
+        logger.error("Failed to upload document to MinIO: %s", e)
+
     chunks = chunk_document(text)
     # Tag every chunk with its origin doc + classification so RAG retrieval
     # can enforce classification-based access control (Phase 9, M3).
