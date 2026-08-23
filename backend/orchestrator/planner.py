@@ -87,10 +87,15 @@ class Planner:
                 f_lower = f.lower()
                 if any(f_lower.endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".tiff", ".bmp"]):
                     modalities.append("vision")
+                    # Any image attachment is presumed to be a scanned document
+                    # unless the filename/prompt explicitly indicates a P&ID/drawing
+                    if not ("pid" in f_lower or "drawing" in f_lower or "schematic" in f_lower or "dwg" in f_lower):
+                        modalities.append("scanned_document")
                 elif f_lower.endswith(".pdf"):
                     modalities.append("pdf")
                 if "pid" in f_lower or "drawing" in f_lower or "schematic" in f_lower or "dwg" in f_lower:
                     modalities.append("engineering_drawing")
+
 
         # Check description keywords
         if any(kw in desc_lower for kw in ["p&id", "drawing", "schematic", "blueprint", "valve", "instrumentation", "pipe"]):
@@ -152,7 +157,7 @@ class Planner:
         Returns the primary task category: 'CODING', 'VISION', 'RAG', or 'REASONING'.
         """
         modalities = self.detect_required_modalities(description, file_attachments=file_attachments)
-        if "engineering_drawing" in modalities or "scanned_document" in modalities or "ocr" in modalities:
+        if "engineering_drawing" in modalities or "scanned_document" in modalities or "ocr" in modalities or "vision" in modalities:
             return "VISION"
         if "code" in modalities:
             return "CODING"

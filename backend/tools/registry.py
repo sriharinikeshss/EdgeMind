@@ -191,10 +191,16 @@ def _rag_search_handler(query: str = None, prompt: str = None, top_k: int = 5, c
 
 def _direct_llm_handler(prompt: str = None, query: str = None, **kwargs) -> str:
     p = prompt or query or ""
+    # If context from previous steps is already embedded (executor injects it into prompt),
+    # strip any leading blank lines and ensure the LLM gets the full enriched prompt.
+    if not p.strip():
+        p = "Summarize the extracted information from the previous step."
     from models.registry import registry
     model_id = registry.route_task(p)
     output, _ = registry.execute_prompt(model_id, p)
     return output
+
+
 
 
 tool_registry.register_tool(ToolDefinition(
