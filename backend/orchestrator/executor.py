@@ -173,6 +173,23 @@ class Executor:
                 output = registry.execute_tool(
                     tool_name, user_role=self.user_role, arguments=params, db=self.db, username=self.username
                 )
+
+                from tools.registry import ARTIFACT_TOOL_NAMES
+                if tool_name in ARTIFACT_TOOL_NAMES and isinstance(output, dict) and output.get("status") == "ok":
+                    # Phase 8 DoD: no artifact reaches COMPLETED without passing its
+                    # format-specific validator. A failed check fails the step, which
+                    # feeds into the existing MAX_RETRIES retry loop below.
+                    from orchestrator.validator import Validator
+                    check = Validator().validate_artifact(output)
+                    if not check.get("valid"):
+                        logger.warning("Artifact from %s failed validation: %s", tool_name, check.get("errors"))
+                        return {
+                            "success": False,
+                            "error": f"Artifact failed validation: {'; '.join(check.get('errors', []))}",
+                            "tool": tool_name,
+                        }
+                    output["validation"] = check
+
                 tool_data = None
                 if isinstance(output, dict):
                     tool_data = output  # Preserve full raw JSON for frontend Visual Evidence

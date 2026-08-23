@@ -315,6 +315,30 @@ class Planner:
 
         return ExecutionPlan(task_id=task_id, steps=steps)
 
+    def replan(
+        self,
+        task_id: str,
+        description: str,
+        failure_reason: str,
+        file_attachments: list[str] | None = None,
+    ) -> ExecutionPlan:
+        """
+        Phase 8 (M1): regenerate a plan after a validation failure (low grounding
+        score, unsupported claims, a failed calculation re-check, or a rejected
+        artifact), injecting the specific failure as a corrective instruction so
+        the model addresses it directly instead of repeating the same mistake.
+        Reuses generate_plan() end-to-end — no duplicated planning logic.
+        """
+        corrective_note = (
+            "\n\nIMPORTANT: a previous attempt at this task FAILED validation for this reason:\n"
+            f"{failure_reason}\n"
+            "Correct this specific issue in your new plan — e.g. re-verify claims against retrieved "
+            "sources with rag_search, re-run/fix the calculation, or regenerate the artifact — before "
+            "producing your answer again."
+        )
+        logger.info("Replanning task %s due to: %s", task_id, failure_reason)
+        return self.generate_plan(task_id, f"{description}{corrective_note}", file_attachments=file_attachments)
+
     def decompose_task(self, description: str) -> list[str]:
         """
         Breaks a task into a list of sub-task descriptions.

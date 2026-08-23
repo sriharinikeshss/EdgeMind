@@ -4,6 +4,7 @@ POST /api/agent — Phase 3 agent loop endpoint (M1).
 Runs the full Planner → Executor → Validator loop for a task.
 Returns the execution trace and final status.
 """
+import json
 import logging
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -22,6 +23,10 @@ router = APIRouter()
 
 planner = Planner()
 validator = Validator()
+
+# Phase 8: bounded replan loop when execution succeeds but validation doesn't.
+MAX_REPLAN_ATTEMPTS = 3
+GROUNDING_THRESHOLD = 0.5
 
 
 class AgentRequest(BaseModel):
@@ -48,6 +53,9 @@ class AgentResponse(BaseModel):
     final_output: str
     validation_passed: bool
     events: list[dict]
+    grounding_score: float = 1.0
+    validation_report: dict | None = None
+    retry_count: int = 0
 
 
 from api.auth import get_current_user, UserInfo
@@ -91,15 +99,14 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
             except Exception as e:
                 logger.error("Failed to decode attached image: %s", e)
 
-        # 3. PLAN
+        # 3. PLAN (first attempt — replans happen inside the loop below)
         sm.transition(TaskStatus.PLANNED)
         sm.persist_task_state(db)
-        plan = planner.generate_plan(task_id, req.prompt, file_attachments=file_attachments)
 
         # Log routing decision
         from models.registry import registry
         from database.repo import log_audit_action
-        
+
         model_id = registry.route_task(req.prompt)
         log_model_selection(
             db=db,
@@ -108,55 +115,148 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
             selected_model=model_id,
             routing_reason=f"Phase 3 agent loop classification: {task_type}",
         )
-        
+
         log_audit_action(
             db=db,
             action="MODEL_ROUTE",
             details=f"Task {task_id} routed to {model_id} (Type: {task_type})"
         )
 
-        # 4. EXECUTE
-        sm.transition(TaskStatus.EXECUTING)
-        sm.persist_task_state(db)
-        executor = Executor(db_session=db, user_role=current_user.role, username=current_user.username)
-        execution_result = executor.execute_plan(plan, sm)
-
-        # Collect step results
-        step_results = []
-        for r in execution_result.get("results", []):
-            step_results.append(StepResult(
-                step_id=None,
-                action=None,
-                success=r.get("success", False),
-                output=str(r.get("output", ""))[:2000],
-                error=r.get("error"),
-                tool=r.get("tool"),
-                tool_data=r.get("tool_data"),
-            ))
-        for i, (step, sr) in enumerate(zip(plan.steps, step_results)):
-            sr.step_id = step.step_id
-            sr.action = step.action
-
-        # 5. VALIDATE
-        final_output = "\n".join(
-            str(r.output or "") for r in step_results if r.success
-        )
+        # 4-6. EXECUTE → VALIDATE, with a bounded Phase 8 replan loop: if execution
+        # succeeds but the answer fails grounding/schema validation, regenerate the
+        # plan with the specific failure fed back in, up to MAX_REPLAN_ATTEMPTS times.
+        # A hard execution failure (a step that exhausted its own Phase 3/4 tool-level
+        # retries) is NOT eligible for replanning — the state machine is already
+        # terminal (FAILED) at that point.
+        plan = None
+        all_events: list[dict] = []
+        step_results: list[StepResult] = []
+        final_output = ""
+        claims: list[str] = []
+        unsupported_claims: list[str] = []
+        grounding_score = 1.0
         validation_passed = False
-        if execution_result["status"] == "COMPLETED":
+        retry_count = 0
+        failure_reason = None
+        execution_result = {"status": "FAILED", "results": [], "events": []}
+
+        while True:
+            plan = (
+                planner.generate_plan(task_id, req.prompt, file_attachments=file_attachments)
+                if plan is None
+                else planner.replan(task_id, req.prompt, failure_reason=failure_reason, file_attachments=file_attachments)
+            )
+
+            sm.transition(TaskStatus.EXECUTING)
+            sm.persist_task_state(db)
+            executor = Executor(db_session=db, user_role=current_user.role, username=current_user.username)
+            execution_result = executor.execute_plan(plan, sm)
+            all_events.extend(executor.events)
+
+            step_results = []
+            for r in execution_result.get("results", []):
+                step_results.append(StepResult(
+                    step_id=None,
+                    action=None,
+                    success=r.get("success", False),
+                    output=str(r.get("output", ""))[:2000],
+                    error=r.get("error"),
+                    tool=r.get("tool"),
+                    tool_data=r.get("tool_data"),
+                ))
+            for step, sr in zip(plan.steps, step_results):
+                sr.step_id = step.step_id
+                sr.action = step.action
+
+            final_output = "\n".join(str(r.output or "") for r in step_results if r.success)
+
+            if execution_result["status"] != "COMPLETED":
+                failed = next((r for r in execution_result.get("results", []) if not r.get("success")), None)
+                failure_reason = f"Execution failed: {failed.get('error') if failed else 'unknown step failure'}"
+                grounding_score = 0.0
+                validation_passed = False
+                break  # sm is already FAILED (set by the Executor) — not eligible for replanning
+
             sm.transition(TaskStatus.VALIDATING)
             sm.persist_task_state(db)
-            validation_passed = validator.validate_answer(task_id, final_output, req.expected_schema)
 
-        # 6. COMPLETE or FAIL based on execution + validation
-        if execution_result["status"] == "COMPLETED" and validation_passed:
+            # Phase 8: grounding score against whichever source-of-truth this plan used —
+            # RAG citation text if a rag_search step ran, else the Phase 5 vision
+            # extraction if a vision step ran, else there's nothing to hallucinate
+            # against and the answer is trivially grounded.
+            rag_text = "\n".join(r.output or "" for r in step_results if r.tool == "rag_search" and r.success)
+            vision_extraction = next(
+                (r.tool_data for r in step_results
+                 if r.tool in ("analyze_scanned_document", "analyze_engineering_drawing") and r.tool_data),
+                None,
+            )
+            # Claims come from the answer itself (the last successful step, typically
+            # a direct_llm/generate_* step) — NOT the full final_output concatenation,
+            # which would otherwise include the rag_search step's own citation text
+            # as a "claim" that trivially scores against itself and inflates grounding.
+            answer_text = next((r.output or "" for r in reversed(step_results) if r.success), final_output)
+            claims = validator.extract_claims(answer_text)
+            if rag_text:
+                grounding_score = validator.calculate_grounding_score(claims, rag_text)
+                unsupported_claims = validator.detect_unsupported_claims(claims, rag_text)
+            elif vision_extraction:
+                unsupported_claims = validator.detect_hallucination_risk(claims, vision_extraction)
+                grounding_score = round(1.0 - (len(unsupported_claims) / len(claims)), 3) if claims else 1.0
+            else:
+                grounding_score, unsupported_claims = 1.0, []
+
+            schema_ok = validator.validate_answer(task_id, final_output, req.expected_schema)
+            grounding_ok = grounding_score >= GROUNDING_THRESHOLD
+            validation_passed = schema_ok and grounding_ok
+
+            if validation_passed:
+                break
+
+            failure_reason = (
+                "Output was empty or did not match the expected schema."
+                if not schema_ok
+                else (
+                    f"Grounding score {grounding_score} is below the {GROUNDING_THRESHOLD} threshold. "
+                    f"Unsupported claims: {unsupported_claims[:3]}"
+                )
+            )
+
+            retry_count += 1
+            if retry_count > MAX_REPLAN_ATTEMPTS:
+                log_audit_action(
+                    db=db,
+                    action="ESCALATED_TO_HUMAN_REVIEW",
+                    details=f"Task {task_id} exhausted {MAX_REPLAN_ATTEMPTS} replan attempts. Last reason: {failure_reason}",
+                )
+                break
+
+            logger.info("Task %s failed validation (attempt %d/%d) — replanning: %s",
+                        task_id, retry_count, MAX_REPLAN_ATTEMPTS, failure_reason)
+            sm.transition(TaskStatus.RETRYING)
+            sm.persist_task_state(db)
+
+        # 7. COMPLETE or FAIL based on the final attempt
+        if validation_passed:
             sm.transition(TaskStatus.COMPLETED)
         elif sm.status != TaskStatus.FAILED:
             sm.transition(TaskStatus.FAILED)
         sm.persist_task_state(db)
 
+        validation_report = {
+            "claims": claims,
+            "unsupported_claims": unsupported_claims,
+            "grounding_score": grounding_score,
+            "retry_count": retry_count,
+            "escalated": retry_count > MAX_REPLAN_ATTEMPTS,
+            "failure_reason": None if validation_passed else failure_reason,
+        }
+
         # Update task record with final response
         task.response = final_output
         task.model_used = model_id
+        task.grounding_score = grounding_score
+        task.validation_report = json.dumps(validation_report)
+        task.retry_count = retry_count
         db.commit()
 
         return AgentResponse(
@@ -165,7 +265,10 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
             steps=step_results,
             final_output=final_output,
             validation_passed=validation_passed,
-            events=executor.events,
+            events=all_events,
+            grounding_score=grounding_score,
+            validation_report=validation_report,
+            retry_count=retry_count,
         )
 
     except Exception as exc:

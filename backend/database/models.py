@@ -4,7 +4,7 @@ Tables: users, tasks, task_steps, artifacts
 """
 import uuid
 import datetime
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Integer
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Integer, Float
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -31,6 +31,9 @@ class Task(Base):
     status = Column(String, nullable=False, default="CREATED")  # Matches TaskStatus enum
     model_used = Column(String, nullable=True)                   # which LLM was called
     response = Column(Text, nullable=True)                       # raw model output
+    grounding_score = Column(Float, nullable=True)                # Phase 8: claim-to-source grounding [0,1]
+    validation_report = Column(Text, nullable=True)               # Phase 8: JSON {claims, unsupported, checks}
+    retry_count = Column(Integer, nullable=False, default=0)      # Phase 8: replan attempts consumed
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(
         DateTime,
