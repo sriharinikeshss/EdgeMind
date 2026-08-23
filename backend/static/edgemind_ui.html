@@ -113,6 +113,43 @@
 
   /* Panels / cards */
   .panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);}
+
+  /* ===== Chat panel — distinct accent glow ===== */
+  .chat-panel{
+    background:var(--bg-alt);
+    border:1px solid rgba(127,217,168,0.28);
+    border-radius:var(--radius);
+    box-shadow:0 0 0 1px rgba(127,217,168,0.06), 0 4px 32px rgba(0,0,0,0.35);
+  }
+  .chat-panel .panel-head{
+    background:rgba(127,217,168,0.04);
+    border-bottom:1px solid rgba(127,217,168,0.15);
+  }
+  #chat-messages{
+    min-height:220px;
+    max-height:420px;
+    overflow-y:auto;
+    padding:16px 18px;
+    scroll-behavior:smooth;
+  }
+
+  /* Thinking dots */
+  @keyframes thinking-bounce{0%,80%,100%{transform:translateY(0);}40%{transform:translateY(-5px);}}
+  .thinking-dots span{
+    display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);
+    margin:0 2px;animation:thinking-bounce 1.2s infinite ease-in-out;
+  }
+  .thinking-dots span:nth-child(2){animation-delay:.2s;}
+  .thinking-dots span:nth-child(3){animation-delay:.4s;}
+
+  /* Trace step enter animation */
+  @keyframes stepIn{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:none;}}
+  .trace-step-row{animation:stepIn .3s ease both;}
+
+  /* Running step pulse */
+  @keyframes runPulse{0%,100%{opacity:.4;}50%{opacity:1;}}
+  .trace-step-running .row-icon{animation:runPulse .9s infinite ease-in-out;color:var(--warn) !important;}
+
   .panel-head{display:flex;align-items:center;justify-content:between;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border-soft);}
   .panel-head .eyebrow{margin:0 0 3px;}
   .panel-title{font-size:14.5px;color:var(--text);font-weight:600;}
@@ -428,7 +465,7 @@
         <div class="grid-2">
           <!-- LEFT: task + evidence + deliverables -->
           <div class="stack">
-            <div class="panel">
+            <div class="panel chat-panel">
               <div class="panel-head">
                 <div>
                   <div class="eyebrow" id="task-id-label">CURRENT TASK</div>
@@ -436,7 +473,7 @@
                 </div>
                 <span class="tag" id="task-status-tag">READY</span>
               </div>
-              <div class="panel-body" id="chat-messages">
+              <div id="chat-messages">
                 <div class="empty">
                   <div class="empty-title">No task running yet</div>
                   <div class="empty-sub">Describe what you need below, or press "Generate document" once you have an answer to turn into a report.</div>
@@ -812,26 +849,40 @@
   const chatEl = document.getElementById('chat-messages');
   const promptInput = document.getElementById('prompt-input');
 
-  function appendChatTurn(role, text, meta){
+  function appendChatTurn(role, text, meta, id){
     if (chatEl.querySelector('.empty')) chatEl.innerHTML = '';
     const isUser = role === 'user';
     const row = document.createElement('div');
+    if (id) row.id = id;
     row.style.cssText = 'display:flex;gap:10px;margin-bottom:14px;';
     row.innerHTML = `
-      <div class="avatar">${isUser ? initials(auth.username) : '⌁'}</div>
+      <div class="avatar" style="${isUser ? '' : 'background:rgba(127,217,168,0.12);color:var(--accent);border-color:rgba(127,217,168,0.25);'}">${isUser ? initials(auth.username) : '⌁'}</div>
       <div style="flex:1;min-width:0;">
         <div style="font-family:var(--mono);font-size:10px;letter-spacing:.5px;color:var(--text-faint);margin-bottom:6px;">
-          ${isUser ? escapeHtml(auth.username).toUpperCase() : 'EDGEMIND'} · ${fmtTime(new Date().toISOString())}${meta ? ' &nbsp; ' + escapeHtml(meta) : ''}
+          ${isUser ? escapeHtml(auth.username).toUpperCase() : 'EDGEMIND'} · ${fmtTime(new Date().toISOString())}${meta ? ' &nbsp; <span style="color:var(--accent)">' + escapeHtml(meta) + '</span>' : ''}
         </div>
-        <div style="font-size:13.5px;line-height:1.6;color:${isUser ? 'var(--text-dim)' : 'var(--text)'};white-space:pre-wrap;">${escapeHtml(text)}</div>
+        <div class="chat-msg-body" style="font-size:13.5px;line-height:1.6;color:${isUser ? 'var(--text-dim)' : 'var(--text)'};white-space:pre-wrap;">${text === '__thinking__' ? '<div class="thinking-dots"><span></span><span></span><span></span></div>' : escapeHtml(text)}</div>
       </div>`;
     chatEl.appendChild(row);
     chatEl.scrollTop = chatEl.scrollHeight;
+    return row;
+  }
+
+  function setThinkingText(row, text, meta){
+    const body = row.querySelector('.chat-msg-body');
+    if (body) body.style.whiteSpace = 'pre-wrap', body.textContent = text;
+    if (meta){
+      const header = row.querySelector('[style*="letter-spacing"]');
+      if (header) header.innerHTML = `EDGEMIND · ${fmtTime(new Date().toISOString())} &nbsp; <span style="color:var(--accent)">${escapeHtml(meta)}</span>`;
+    }
   }
 
   function setTaskStatus(status){
     const tag = document.getElementById('task-status-tag');
     tag.textContent = status;
+    tag.style.color = status === 'FAILED' ? 'var(--danger)' : status === 'RUNNING' ? 'var(--warn)' : '';
+    tag.style.borderColor = status === 'FAILED' ? 'rgba(224,101,90,0.4)' : status === 'RUNNING' ? 'rgba(227,165,63,0.4)' : '';
+    tag.style.background = status === 'FAILED' ? 'var(--danger-wash)' : status === 'RUNNING' ? 'var(--warn-wash)' : '';
   }
 
   async function runAgent(prompt){
@@ -839,30 +890,45 @@
     const attachment = pendingAttachment;
     appendChatTurn('user', prompt + (attachment ? `\n\n📎 ${attachment.name}` : ''));
     setTaskStatus('RUNNING');
-    document.getElementById('trace-list').innerHTML = `<div class="empty-sub">Executing…</div>`;
+    const traceList = document.getElementById('trace-list');
+    traceList.innerHTML = `<div class="trace-step-row row-item" style="border:none;"><div class="row-icon trace-step-running" style="font-size:14px;">⟳</div><div class="row-main"><div class="row-title">Planning task…</div><div class="row-sub" style="font-family:var(--mono);font-size:9.5px;">planner</div></div></div>`;
     promptInput.value = '';
     promptInput.disabled = true;
+    // Show thinking bubble
+    const thinkingRow = appendChatTurn('agent', '__thinking__');
     if (attachment) clearPendingAttachment();
     try {
       const payload = { prompt };
       if (attachment) {
         payload.image_base64 = attachment.base64;
         payload.filename = attachment.name;
+        // Also persist to artifacts immediately for record-keeping
+        (async () => {
+          try {
+            const form = new FormData();
+            const blob = await fetch(attachment.base64).then(r=>r.blob());
+            form.append('file', blob, attachment.name);
+            if (lastTaskId) form.append('task_id', lastTaskId);
+            await apiFetch('/api/artifacts/upload', { method: 'POST', body: form });
+          } catch(_){}
+        })();
       }
       const data = await apiFetch('/api/agent', { method: 'POST', json: payload });
       lastTaskId = data.task_id;
       lastAnswerText = data.final_output || '';
       document.getElementById('task-id-label').textContent = 'TASK #' + data.task_id.slice(0,8).toUpperCase();
       setTaskStatus(data.status);
-      appendChatTurn('agent', data.final_output || '(no output)', data.status);
+      // Replace thinking dots with actual answer
+      setThinkingText(thinkingRow, data.final_output || '(no output)', data.status);
+      // Animate trace steps one-by-one
       renderTrace(data.events || [], data.steps || []);
       renderEvidence(data.steps || []);
       renderValidation(data);
       await loadDeliverables(data.task_id, data.events || []);
     } catch(e){
       setTaskStatus('FAILED');
-      appendChatTurn('agent', 'Error: ' + e.message, 'ERROR');
-      document.getElementById('trace-list').innerHTML = `<div class="empty-sub">Run failed: ${escapeHtml(e.message)}</div>`;
+      setThinkingText(thinkingRow, 'Error: ' + e.message, 'ERROR');
+      traceList.innerHTML = `<div class="empty-sub">Run failed: ${escapeHtml(e.message)}</div>`;
     } finally {
       promptInput.disabled = false;
       promptInput.focus();
@@ -913,15 +979,14 @@
       const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
       attachmentPreview.style.display = 'block';
       attachmentPreview.innerHTML = `
-        <div class="row-item" style="border:none;padding:6px 0;">
-          <div class="row-icon">${isPdf ? '📄' : '🖼'}</div>
-          <div class="row-main"><div class="row-title">${escapeHtml(file.name)}</div><div class="row-sub">${isPdf ? 'PDF · will be read by agent' : 'Image · will be analyzed by agent'}</div></div>
-          <button onclick="clearPendingAttachment()" style="background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:14px;">✕</button>
+        <div class="row-item" style="border:none;padding:6px 0;margin:0 14px;">
+          <div class="row-icon" style="color:var(--accent);">${isPdf ? '📄' : '🖼'}</div>
+          <div class="row-main"><div class="row-title">${escapeHtml(file.name)}</div><div class="row-sub">${isPdf ? 'PDF · will be read by agent + saved to artifacts' : 'Image · will be analyzed by agent + saved to artifacts'}</div></div>
+          <button onclick="clearPendingAttachment()" style="background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:14px;padding:4px 8px;">✕</button>
         </div>`;
     };
     reader.readAsDataURL(file);
   });
-
 
   function renderTrace(events, steps){
     const list = document.getElementById('trace-list');
@@ -934,13 +999,22 @@
       sub: s.tool || '',
       state: s.success ? 'done' : 'failed',
     })) : events.map(e=>({ title: e.type, sub: e.step_id || e.tool || '', state: 'done' }));
-    list.innerHTML = rows.map(s=>`
-      <div class="row-item">
-        <div class="row-icon" style="color:${s.state==='done'?'var(--accent)':'var(--danger)'};">
-          ${s.state==='done'?'✓':'✕'}
-        </div>
-        <div class="row-main"><div class="row-title">${escapeHtml(s.title)}</div><div class="row-sub">${escapeHtml(s.sub)}</div></div>
-      </div>`).join('');
+
+    // Clear and reveal each step one-by-one with animated delay
+    list.innerHTML = '';
+    rows.forEach((s, i) => {
+      setTimeout(()=>{
+        const el = document.createElement('div');
+        el.className = 'row-item trace-step-row';
+        el.style.animationDelay = '0ms'; // already delayed by setTimeout
+        el.innerHTML = `
+          <div class="row-icon" style="color:${s.state==='done'?'var(--accent)':'var(--danger)'};">
+            ${s.state==='done'?'✓':'✕'}
+          </div>
+          <div class="row-main"><div class="row-title">${escapeHtml(s.title)}</div><div class="row-sub">${escapeHtml(s.sub)}</div></div>`;
+        list.appendChild(el);
+      }, i * 220);
+    });
   }
 
   function renderEvidence(steps){
@@ -970,6 +1044,7 @@
 
   async function loadDeliverables(taskId, events){
     const list = document.getElementById('deliverables-list');
+
     const createdCount = (events || []).filter(e => e.type === 'artifact_created').length;
     try {
       const artifacts = await apiFetch('/api/artifacts?task_id=' + encodeURIComponent(taskId));
