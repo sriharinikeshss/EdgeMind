@@ -56,6 +56,7 @@ class AgentResponse(BaseModel):
     grounding_score: float = 1.0
     validation_report: dict | None = None
     retry_count: int = 0
+    artifacts: list[dict] = []
 
 
 from api.auth import get_current_user, UserInfo
@@ -293,6 +294,20 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
         task.retry_count = retry_count
         db.commit()
 
+        # Query any artifacts generated in this task
+        from database.models import Artifact
+        task_artifacts = db.query(Artifact).filter(Artifact.task_id == task_id).all()
+        artifacts_list = [
+            {
+                "id": a.id,
+                "filename": a.filename,
+                "file_hash": a.file_hash,
+                "content_type": a.content_type,
+                "created_at": str(a.created_at),
+            }
+            for a in task_artifacts
+        ]
+
         return AgentResponse(
             task_id=task_id,
             status=sm.status.value,
@@ -303,6 +318,7 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
             grounding_score=grounding_score,
             validation_report=validation_report,
             retry_count=retry_count,
+            artifacts=artifacts_list,
         )
 
     except Exception as exc:

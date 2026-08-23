@@ -268,9 +268,9 @@ async function submitAgentTask() {
       if (data.artifacts && data.artifacts.length > 0) {
         artifactsHtml = `<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;">
           ${data.artifacts.map(a => `
-            <a href="${API}/artifacts/${a.id}/download" target="_blank" class="btn primary btn-sm">
-              ${iconDownload} ${escapeHtml(a.filename)}
-            </a>
+            <button onclick="downloadArtifact('${a.id}', '${escapeHtml(a.filename)}')" class="btn primary btn-sm">
+              ${iconDownload} Download ${escapeHtml(a.filename)}
+            </button>
           `).join('')}
         </div>`;
       }
@@ -314,7 +314,7 @@ async function submitAgentTask() {
               <div class="row-title">${escapeHtml(a.filename)}</div>
               <div class="row-sub">Generated deliverable · hash verified</div>
             </div>
-            <a href="${API}/artifacts/${a.id}/download" target="_blank" class="icon-btn" title="Download">${iconDownload}</a>
+            <button onclick="downloadArtifact('${a.id}', '${escapeHtml(a.filename)}')" class="icon-btn" title="Download">${iconDownload}</button>
           </div>
         `).join('');
       }
@@ -474,6 +474,28 @@ function renderDocuments(docs) {
 // ---------------- ARTIFACTS PAGE ----------------
 const artifactsList = document.getElementById('artifacts-list');
 
+window.downloadArtifact = async function(id, filename) {
+  try {
+    const res = await fetch(`${API}/artifacts/${id}/download`, { headers: getHeaders() });
+    if (!res.ok) {
+      // Fallback: window.open with query token
+      window.open(`${API}/artifacts/${id}/download?token=${encodeURIComponent(token)}`, '_blank');
+      return;
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || 'artifact.bin';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    window.open(`${API}/artifacts/${id}/download?token=${encodeURIComponent(token)}`, '_blank');
+  }
+};
+
 async function loadArtifacts() {
   try {
     const res = await fetch(`${API}/artifacts`, { headers: getHeaders() });
@@ -514,7 +536,7 @@ function renderArtifacts(arts) {
         </div>
         <div class="row-right">
           <span class="check" style="font-size:11px;">✓ verified</span>
-          <a href="${API}/artifacts/${a.id}/download" target="_blank" class="icon-btn" title="Download Artifact">${iconDownload}</a>
+          <button onclick="downloadArtifact('${a.id}', '${escapeHtml(a.filename)}')" class="icon-btn" title="Download Artifact">${iconDownload}</button>
         </div>
       </div>
     `;
