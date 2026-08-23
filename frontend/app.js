@@ -2,7 +2,7 @@ let token = '';
 const API = 'http://localhost:8000/api';
 
 // ---------------- LOGIN ----------------
-document.getElementById('enter-workspace-btn').addEventListener('click', async () => {
+async function doLogin() {
   const user = document.getElementById('login-username').value;
   const pass = document.getElementById('login-password').value;
   const btn = document.getElementById('enter-workspace-btn');
@@ -20,14 +20,23 @@ document.getElementById('enter-workspace-btn').addEventListener('click', async (
       login.style.opacity = '0';
       setTimeout(()=>{ login.style.display = 'none'; }, 350);
     } else {
-      alert('Login failed');
+      let errDetail = 'Login failed';
+      try {
+        const err = await res.json();
+        if (err.detail) errDetail = err.detail;
+      } catch(_) {}
+      alert(`Authentication error: ${errDetail}`);
       btn.textContent = 'Enter workspace';
     }
   } catch(e) {
-    alert('Error connecting to backend');
+    alert(`Error connecting to backend (${API}): ${e.message}`);
     btn.textContent = 'Enter workspace';
   }
-});
+}
+
+document.getElementById('enter-workspace-btn').addEventListener('click', doLogin);
+document.getElementById('login-username')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('login-password')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
 
 // ---------------- NAV ----------------
 const crumbEl = document.getElementById('crumb');
