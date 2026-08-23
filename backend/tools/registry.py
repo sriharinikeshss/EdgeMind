@@ -240,9 +240,21 @@ tool_registry.register_tool(ToolDefinition(
 # -- Phase 4 Tools --
 
 def _read_file_handler(path: str, **kwargs) -> str:
+    if path.lower().endswith(".pdf"):
+        try:
+            from pypdf import PdfReader
+            reader = PdfReader(path)
+            text = ""
+            for page in reader.pages:
+                text += page.extract_text() + "\n"
+            return text
+        except Exception as e:
+            return f"Failed to read PDF: {e}"
     try:
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
+    except Exception as e:
+        return f"Failed to read file: {e}" 
     except Exception as e:
         return str(e)
 
@@ -285,12 +297,45 @@ def _run_ocr_handler(image_bytes: bytes = None, image_path: str = None, **kwargs
     return run_ocr(image_bytes)
 
 
-def _analyze_scanned_document_handler(image_bytes: bytes = None, image_path: str = None, **kwargs) -> dict:
+def _analyze_scanned_document_handler(image_bytes: bytes = None, image_path: str = None, image_base64: str = None, **kwargs) -> dict:
     from vision.multimodal_processor import analyze_scanned_document
+    import base64
     target = image_bytes or image_path
+    if image_base64:
+        target = base64.b64decode(image_base64)
     if not target:
-        return {"status": "error", "message": "No image provided for document analysis."}
-    return analyze_scanned_document(target)
+        return {"status": "error", "stdout": "No image provided for document analysis."}
+    
+    res = analyze_scanned_document(target)
+    if res.get("status") != "ok":
+        return {"status": "error", "stdout": res.get("message", "Error analyzing document")}
+    
+    flags = res.get("low_confidence_flags", [])
+    stdout = res.get("full_text", "")
+    if flags:
+        stdout += f"\n\n{len(flags)} low-confidence region(s) flagged."
+    
+    return {
+        "status": "ok",
+        "stdout": stdout,
+        "flagged_regions": flags
+    }
+
+def _analyze_engineering_drawing_handler(image_bytes: bytes = None, image_path: str = None, image_base64: str = None, **kwargs) -> dict:
+    from vision.multimodal_processor import analyze_engineering_drawing
+    import base64
+    target = image_bytes or image_path
+    if image_base64:
+        target = base64.b64decode(image_base64)
+    if not target:
+        return {"status": "error", "stdout": "No image provided for drawing analysis."}
+    
+    res = analyze_engineering_drawing(target)
+    if res.get("status") != "ok":
+        # Handle the grace failure tested in stub
+        return {"status": res.get("status", "error"), "stdout": res.get("message", "Error analyzing drawing")}
+    return {"status": "ok", "stdout": "Extraction complete."}
+
 
 
 def _analyze_engineering_drawing_handler(image_bytes: bytes = None, image_path: str = None, **kwargs) -> dict:

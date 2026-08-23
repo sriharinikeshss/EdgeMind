@@ -23,12 +23,18 @@ class Executor:
     Emits step events into an `events` list that can be streamed via WebSocket.
     """
 
+    # Phase 9: tools whose output is third-party document content (RAG chunks,
+    # OCR/vision extractions) — not the agent's own reasoning — and must be
+    # content-type-tagged as untrusted before being folded into a later prompt.
+    _UNTRUSTED_CONTEXT_TOOLS = {"rag_search", "analyze_scanned_document", "analyze_engineering_drawing", "run_ocr"}
+
     def __init__(self, db_session=None, user_role: str = "operator", username: str | None = None):
         self.db = db_session
         self.user_role = user_role
         self.username = username
         self.events: list[dict] = []   # collected step events for WS streaming
         self.context: dict[str, Any] = {}  # accumulates tool outputs across steps
+        self.context_sources: dict[str, str] = {}  # step_id -> tool name, for untrusted-content tagging
 
     def _emit(self, event_type: str, payload: dict) -> None:
         event = {"type": event_type, **payload}
@@ -68,6 +74,7 @@ class Executor:
                 completed_step_ids.add(step.step_id)
                 # Store output in context for downstream steps
                 self.context[step.step_id] = step_result.get("output", "")
+                self.context_sources[step.step_id] = step.tool or "direct_llm"
                 self._emit("step_completed", {"step_id": step.step_id, "output": str(step_result.get("output", ""))[:500]})
                 self._write_step_to_db(plan.task_id, step, step_result)
                 self._write_artifact_if_generated(plan.task_id, step, step_result)
@@ -106,6 +113,10 @@ class Executor:
             if result.get("permission_denied"):
                 # RBAC denials are not transient — retrying won't grant permission.
                 logger.warning("Step %s denied by RBAC — not retrying: %s", step.step_id, result.get("error"))
+                return result
+            if result.get("awaiting_approval"):
+                # A human-approval gate isn't resolved by retrying either.
+                logger.warning("Step %s awaiting human approval — not retrying: %s", step.step_id, result.get("error"))
                 return result
             logger.warning("Step %s attempt %d/%d failed: %s", step.step_id, attempt, retries, result.get("error"))
             if attempt < retries:
@@ -146,11 +157,19 @@ class Executor:
         registry = tool_registry or default_registry
         tool_name = step.tool or "direct_llm"
 
-        # Inject context from previous steps into params
+        # Inject context from previous steps into params. Phase 9: content that
+        # came from a document/RAG/vision tool is third-party text, not the
+        # agent's own reasoning — tag it as untrusted so it can't be mistaken
+        # for an instruction by the next prompt it's folded into.
         params = {**step.params, "task_id": task_id}
-        ctx_str = "\n".join(
-            f"[{sid}]: {out}" for sid, out in self.context.items()
-        )
+        ctx_lines = []
+        for sid, out in self.context.items():
+            src_tool = self.context_sources.get(sid)
+            if src_tool in self._UNTRUSTED_CONTEXT_TOOLS:
+                from security.prompt_injection import sanitize_input
+                out = sanitize_input(out, source=f"{src_tool}:{sid}")
+            ctx_lines.append(f"[{sid}]: {out}")
+        ctx_str = "\n".join(ctx_lines)
         if ctx_str:
             if "prompt" in params:
                 params["prompt"] = f"{params['prompt']}\n\nContext from previous steps:\n{ctx_str}"
@@ -168,6 +187,31 @@ class Executor:
 
             # Use registered tool
             if registry and tool_name in registry.list_tools():
+                # Phase 9 (M1/M6): sensitive tools (write_file, query_db) require
+                # an explicit human approval before they run. RBAC authorization
+                # (is this role even allowed to call the tool) is a separate,
+                # prior question — checked here read-only so an unauthorized
+                # role still gets the existing RBAC-denial path (and its
+                # ToolCall/audit logging) below, unaffected by this gate.
+                if self.db is not None and registry.check_tool_permission(tool_name, self.user_role):
+                    from security.approvals import requires_approval, get_active_approval, create_approval_request
+                    if requires_approval(tool_name):
+                        approval = get_active_approval(self.db, task_id, step.step_id)
+                        if approval is None:
+                            approval = create_approval_request(
+                                self.db, task_id, step.step_id, tool_name, params, requested_by=self.username
+                            )
+                        if approval.status != "APPROVED":
+                            return {
+                                "success": False,
+                                "error": (
+                                    f"Tool '{tool_name}' requires human approval "
+                                    f"(status={approval.status}, approval_id={approval.id})."
+                                ),
+                                "tool": tool_name,
+                                "awaiting_approval": True,
+                            }
+
                 if not registry.validate_tool_arguments(tool_name, params):
                     return {"success": False, "error": f"Invalid arguments for {tool_name}", "tool": tool_name}
                 output = registry.execute_tool(
@@ -189,6 +233,13 @@ class Executor:
                             "tool": tool_name,
                         }
                     output["validation"] = check
+
+                    # Phase 9 (M6): encrypt the artifact at rest, now that Phase 8
+                    # has validated the plaintext. No-op unless
+                    # ARTIFACT_ENCRYPTION_ENABLED is set (see artifacts/storage.py).
+                    from artifacts.storage import encrypt_file_at_rest
+                    if output.get("path"):
+                        output["encrypted_at_rest"] = encrypt_file_at_rest(output["path"])
 
                 tool_data = None
                 if isinstance(output, dict):

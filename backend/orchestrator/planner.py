@@ -87,6 +87,8 @@ class Planner:
                 f_lower = f.lower()
                 if any(f_lower.endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".tiff", ".bmp"]):
                     modalities.append("vision")
+                elif f_lower.endswith(".pdf"):
+                    modalities.append("pdf")
                 if "pid" in f_lower or "drawing" in f_lower or "schematic" in f_lower or "dwg" in f_lower:
                     modalities.append("engineering_drawing")
 
@@ -180,6 +182,23 @@ class Planner:
                     tool="direct_llm",
                     depends_on=["step_1"],
                     params={"prompt": f"Based on the engineering drawing extraction, address the user request: {description}"},
+                )
+            ]
+        elif "pdf" in modalities:
+            return [
+                PlanStep(
+                    step_id="step_1",
+                    action="Read text from attached PDF document",
+                    tool="read_file",
+                    depends_on=[],
+                    params={"prompt": description, "path": file_attachments[0] if file_attachments else None},
+                ),
+                PlanStep(
+                    step_id="step_2",
+                    action="Analyze extracted PDF text",
+                    tool="direct_llm",
+                    depends_on=["step_1"],
+                    params={"prompt": f"Based on the PDF text, address the user request: {description}"},
                 )
             ]
         elif "scanned_document" in modalities or "ocr" in modalities:
@@ -282,9 +301,13 @@ class Planner:
             # Anti-hallucination tool validation: ensure vision tools are only assigned when visual modality is detected
             detected_modalities = self.detect_required_modalities(description, file_attachments=file_attachments)
             has_vision = any(m in detected_modalities for m in ["scanned_document", "engineering_drawing", "ocr", "vision"])
+            is_pdf = "pdf" in detected_modalities
             for s in steps:
-                if s.tool in ["run_ocr", "analyze_scanned_document", "analyze_engineering_drawing"] and not has_vision:
-                    s.tool = "direct_llm"
+                if s.tool in ["run_ocr", "analyze_scanned_document", "analyze_engineering_drawing"]:
+                    if is_pdf:
+                        s.tool = "read_file"
+                    elif not has_vision:
+                        s.tool = "direct_llm"
         except Exception as exc:
             logger.info("Plan generation using intelligent fallback (%s)", exc)
             steps = self._generate_fallback_plan(description, file_attachments=file_attachments)
@@ -295,6 +318,20 @@ class Planner:
                 if s.tool in ["run_ocr", "analyze_scanned_document", "analyze_engineering_drawing"]:
                     if "image_path" not in s.params:
                         s.params["image_path"] = file_attachments[0]
+                elif s.tool == "read_file":
+                    if "path" not in s.params:
+                        s.params["path"] = file_attachments[0]
+            if "pdf" in self.detect_required_modalities(description, file_attachments=file_attachments) and not any(s.tool == "read_file" for s in steps):
+                steps.insert(0, PlanStep(
+                    step_id="step_0_pdf",
+                    action="Read attached PDF document",
+                    tool="read_file",
+                    depends_on=[],
+                    params={"path": file_attachments[0]}
+                ))
+                for s in steps[1:]:
+                    if not s.depends_on:
+                        s.depends_on.append("step_0_pdf")
 
         # Phase 7 Deliverable Safeguard: if the user asked for a downloadable
         # artifact but the plan (LLM or fallback) didn't end with a generate_*

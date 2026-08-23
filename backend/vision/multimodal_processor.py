@@ -122,7 +122,10 @@ def analyze_scanned_document(image_input: bytes | str) -> dict:
     
     # Step 1: Preprocessing
     if _PIL_AVAILABLE and Image is not None:
-        img = Image.open(io.BytesIO(raw_bytes))
+        try:
+            img = Image.open(io.BytesIO(raw_bytes))
+        except Exception as e:
+            return {'status': 'error', 'message': f'Cannot parse image: {e}'}
         preprocessed = _pil_preprocess(img)
         buf = io.BytesIO()
         preprocessed.save(buf, format="PNG")
@@ -194,7 +197,10 @@ def analyze_engineering_drawing(image_input: bytes | str) -> dict:
 
     # Preprocess & Run OCR
     if _PIL_AVAILABLE and Image is not None:
-        img = Image.open(io.BytesIO(raw_bytes))
+        try:
+            img = Image.open(io.BytesIO(raw_bytes))
+        except Exception as e:
+            return {'status': 'error', 'message': f'Cannot parse image: {e}'}
         preprocessed = _pil_preprocess(img)
         buf = io.BytesIO()
         preprocessed.save(buf, format="PNG")

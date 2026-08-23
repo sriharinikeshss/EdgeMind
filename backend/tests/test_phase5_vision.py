@@ -17,9 +17,17 @@ from vision.multimodal_processor import (
 )
 from tools.registry import tool_registry
 from fastapi.testclient import TestClient
+from api.auth import get_current_user, UserInfo
+from main import app
 from main import app
 
 client = TestClient(app)
+
+@pytest.fixture(autouse=True)
+def auth_override():
+    app.dependency_overrides[get_current_user] = lambda: UserInfo(username='operator', role='operator')
+    yield
+    app.dependency_overrides.clear()
 
 
 def _create_sample_image(text: str = "INSPECTION REPORT\nDate: 2026-08-23\nStatus: PASSED\nPressure: 105 PSI", size=(400, 200)) -> bytes:

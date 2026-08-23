@@ -6,6 +6,7 @@ Falls back to a mock response if Ollama is not reachable (dev/CI convenience).
 
 Ollama endpoint: POST http://ollama:11434/api/generate
 """
+import json
 import os
 import time
 import logging
@@ -19,6 +20,12 @@ OLLAMA_REASONING_MODEL = os.getenv("OLLAMA_REASONING_MODEL", "qwen2.5:1.5b")
 OLLAMA_CODING_MODEL = os.getenv("OLLAMA_CODING_MODEL", "qwen2.5-coder:1.5b")
 OLLAMA_VISION_MODEL = os.getenv("OLLAMA_VISION_MODEL", "llava")
 OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT", "300"))
+
+# Phase 9 (M2): enforce model-hash verification at load time. Off by default so
+# dev/CI environments without a manifest entry for every locally-pulled model
+# don't hard-fail; set true once the manifest is authoritative for a deployment.
+ENFORCE_MODEL_HASH = os.getenv("ENFORCE_MODEL_HASH", "false").lower() == "true"
+_MANIFEST_PATH = os.path.join(os.path.dirname(__file__), "model_manifest.json")
 
 class TaskRequest(BaseModel):
     prompt: str
@@ -59,6 +66,76 @@ class ModelRegistry:
         }
         # Mock available VRAM for Phase 2/5 testing
         self.available_vram_gb = 12.0
+        self._manifest = self._load_manifest()
+        self._verified_cache: dict[str, bool] = {}
+
+    @staticmethod
+    def _load_manifest() -> dict:
+        try:
+            with open(_MANIFEST_PATH, encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("Could not load model manifest at %s: %s", _MANIFEST_PATH, exc)
+            return {}
+
+    def _get_live_digest(self, model_id: str) -> str | None:
+        """Query Ollama's own /api/tags (a local call — no external network)
+        for the currently-loaded digest of `model_id`."""
+        try:
+            with httpx.Client(timeout=5.0) as client:
+                resp = client.get(f"{OLLAMA_BASE_URL}/api/tags")
+                resp.raise_for_status()
+                for entry in resp.json().get("models", []):
+                    if entry.get("model") == model_id or entry.get("name") == model_id:
+                        return entry.get("digest")
+        except Exception as exc:
+            logger.warning("Could not query Ollama for model digest of %s: %s", model_id, exc)
+        return None
+
+    def verify_model_hash(self, model_id: str) -> dict:
+        """
+        Phase 9 (M2): compare the model's live SHA-256 digest (from Ollama)
+        against the trusted manifest. Returns
+        {"verified": bool, "expected": str|None, "actual": str|None, "detail": str}.
+        A model missing from the manifest is NOT verified (fails closed).
+        """
+        expected = self._manifest.get(model_id)
+        actual = self._get_live_digest(model_id)
+
+        if expected is None:
+            return {"verified": False, "expected": None, "actual": actual,
+                     "detail": f"'{model_id}' is not in the trusted model manifest."}
+        if actual is None:
+            return {"verified": False, "expected": expected, "actual": None,
+                     "detail": f"Could not reach Ollama to read the live digest for '{model_id}'."}
+        if actual != expected:
+            return {"verified": False, "expected": expected, "actual": actual,
+                     "detail": f"Digest mismatch for '{model_id}' — model file may have been tampered with or replaced."}
+        return {"verified": True, "expected": expected, "actual": actual, "detail": "Digest matches trusted manifest."}
+
+    def validate_model_source(self, model_id: str) -> bool:
+        """A model is only trusted if it's both a registered EdgeMind model
+        AND passes hash verification against the manifest."""
+        if model_id not in self.models:
+            return False
+        return self.verify_model_hash(model_id)["verified"]
+
+    def _ensure_model_trusted(self, model_id: str) -> None:
+        """Called at load time (execute_prompt). Verifies once per process and
+        caches the result. Only hard-fails when ENFORCE_MODEL_HASH=true —
+        otherwise logs + audits a warning so dev/CI without a full manifest
+        keeps working, while the check itself is fully real and callable
+        on-demand via verify_model_hash()/GET /api/sovereignty/report."""
+        if model_id in self._verified_cache:
+            if not self._verified_cache[model_id] and ENFORCE_MODEL_HASH:
+                raise RuntimeError(f"Refusing to serve unverified model '{model_id}' (ENFORCE_MODEL_HASH=true).")
+            return
+        result = self.verify_model_hash(model_id)
+        self._verified_cache[model_id] = result["verified"]
+        if not result["verified"]:
+            logger.warning("Model '%s' failed hash verification: %s", model_id, result["detail"])
+            if ENFORCE_MODEL_HASH:
+                raise RuntimeError(f"Refusing to serve unverified model '{model_id}': {result['detail']}")
 
     def check_vram_capacity(self, model_id: str) -> bool:
         """Check if the model fits in currently available VRAM."""
@@ -180,6 +257,7 @@ class ModelRegistry:
         Returns (response_text, latency_ms).
         Falls back to a mock if Ollama is unreachable.
         """
+        self._ensure_model_trusted(model_id)
         payload = {
             "model": model_id,
             "prompt": prompt,

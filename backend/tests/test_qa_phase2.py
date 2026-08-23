@@ -2,6 +2,7 @@ import os
 import sys
 import pytest
 from fastapi.testclient import TestClient
+from api.auth import get_current_user, UserInfo
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -34,12 +35,14 @@ def override_get_db():
 def setup_test_deps():
     app.dependency_overrides.clear()
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = lambda: UserInfo(username='operator', role='operator')
     yield
     app.dependency_overrides.clear()
 
 client = TestClient(app)
+app.dependency_overrides[get_current_user] = lambda: UserInfo(username='operator', role='operator')
 
-# ── 1. API & Database Integration Test ───────────────────────────────────────
+# â”€â”€ 1. API & Database Integration Test â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def test_api_task_routing():
     # Test coding route
     res = client.post("/api/tasks", json={"prompt": "Write a python function to add numbers"})
@@ -67,7 +70,7 @@ def test_api_task_routing():
     db.close()
 
 
-# ── 2. DoD 20-Prompt Test ────────────────────────────────────────────────────
+# â”€â”€ 2. DoD 20-Prompt Test â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def test_dod_20_prompt_routing():
     registry = ModelRegistry()
     coding_prompts = [
@@ -110,7 +113,7 @@ def test_dod_20_prompt_routing():
     assert accuracy >= 0.95, f"Routing accuracy {accuracy*100}% is below 95% DoD"
 
 
-# ── 3. Sandbox Edge Cases ────────────────────────────────────────────────────
+# â”€â”€ 3. Sandbox Edge Cases â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def test_sandbox_infinite_loop():
     manager = SandboxManager()
     # Code that sleeps to simulate timeout
@@ -126,7 +129,7 @@ def test_sandbox_syntax_error():
     assert "SyntaxError" in result["stderr"]
 
 
-# ── 4. RAG Qdrant Storage Test ───────────────────────────────────────────────
+# â”€â”€ 4. RAG Qdrant Storage Test â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def test_rag_qdrant_memory_storage():
     chunks = [
         {"chunk_index": 0, "text": "This is test chunk 1", "vector": [0.1]*768},
@@ -142,7 +145,7 @@ def test_generate_embeddings_fallback():
     assert 'vector' in res[0]
     assert len(res[0]['vector']) == 768
 
-# ── 5. OCR Execution Test ────────────────────────────────────────────────────
+# â”€â”€ 5. OCR Execution Test â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def test_run_ocr_empty_or_invalid():
     # Invalid image bytes should gracefully error without crashing
     res = run_ocr(b"not an image")

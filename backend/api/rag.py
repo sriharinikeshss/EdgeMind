@@ -7,9 +7,12 @@ and will later become a registered "tool" callable by the executor.
 """
 import os
 import logging
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 import httpx
+
+from security.rbac import require_any_role
+from api.auth import UserInfo
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -70,6 +73,8 @@ def _search_qdrant(query_vector: list[float], collection: str, top_k: int) -> li
                 "text": hit.payload.get("text", ""),
                 "score": hit.score,
                 "chunk_index": hit.payload.get("chunk_index"),
+                "doc_id": hit.payload.get("doc_id"),
+                "classification": hit.payload.get("classification", "internal"),
             }
             for hit in hits
         ]
@@ -78,14 +83,30 @@ def _search_qdrant(query_vector: list[float], collection: str, top_k: int) -> li
         return []
 
 
+# Phase 9 (M3): a role may only retrieve chunks up to this classification tier.
+_ROLE_MAX_CLASSIFICATION = {
+    "viewer": ("public", "internal"),
+    "operator": ("public", "internal", "confidential"),
+    "admin": ("public", "internal", "confidential", "restricted"),
+}
+
+
+def filter_by_classification(chunks: list[dict], role: str) -> list[dict]:
+    """Drop any chunk whose classification tier exceeds what `role` may see."""
+    allowed = _ROLE_MAX_CLASSIFICATION.get(role, ("public", "internal"))
+    return [c for c in chunks if c.get("classification", "internal") in allowed]
+
+
 @router.post("/rag/search", response_model=RAGSearchResponse)
-def rag_search(req: RAGSearchRequest):
+def rag_search(req: RAGSearchRequest, current_user: UserInfo = Depends(require_any_role)):
     """
     Phase 3 standalone RAG search endpoint.
-    Embed the query → search Qdrant → return ranked chunks.
+    Embed the query → search Qdrant → filter by data classification (Phase 9)
+    → return ranked chunks.
     """
     query_vector = _get_query_embedding(req.query)
     hits = _search_qdrant(query_vector, req.collection, req.top_k)
+    hits = filter_by_classification(hits, current_user.role)
 
     results = [
         RAGSearchResult(

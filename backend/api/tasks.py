@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 from database.session import get_db
 from database.models import Task
 from models.registry import registry, TaskRequest, TaskResponse
+from security.rbac import require_any_role
+from api.auth import UserInfo
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +41,7 @@ def update_task_record(db: Session, task: Task, model_used: str, response: str) 
 
 
 @router.post("/tasks", response_model=TaskResponse)
-def create_task(req: TaskRequest, db: Session = Depends(get_db)):
+def create_task(req: TaskRequest, db: Session = Depends(get_db), current_user: UserInfo = Depends(require_any_role)):
     # 1. Persist task with status CREATED
     task = create_task_record(db, req.prompt)
 

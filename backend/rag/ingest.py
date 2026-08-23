@@ -150,7 +150,7 @@ def store_chunks(chunks: list[dict], collection_name: str = "kavach_docs") -> No
     for chunk in chunks:
         if "vector" not in chunk or not chunk["vector"]:
             continue
-        
+
         point_id = str(uuid.uuid4())
         points.append(
             PointStruct(
@@ -158,7 +158,11 @@ def store_chunks(chunks: list[dict], collection_name: str = "kavach_docs") -> No
                 vector=chunk["vector"],
                 payload={
                     "text": chunk["text"],
-                    "chunk_index": chunk["chunk_index"]
+                    "chunk_index": chunk["chunk_index"],
+                    "doc_id": chunk.get("doc_id"),
+                    # Phase 9 (M3): data-classification tag, defaults to the most
+                    # restrictive-but-still-usable tier for untagged legacy chunks.
+                    "classification": chunk.get("classification", "internal"),
                 }
             )
         )

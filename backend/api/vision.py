@@ -9,7 +9,7 @@ Endpoints:
 from __future__ import annotations
 import base64
 import logging
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from ocr.processor import run_ocr, calculate_ocr_confidence
@@ -19,6 +19,8 @@ from vision.multimodal_processor import (
     generate_visual_evidence,
     classify_image_type
 )
+from security.rbac import require_any_role
+from api.auth import UserInfo
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -99,7 +101,7 @@ def _get_image_bytes(image_base64: str | None, image_path: str | None) -> bytes:
 
 
 @router.post("/vision/analyze", response_model=VisionAnalyzeResponse)
-def analyze_vision(req: VisionAnalyzeRequest):
+def analyze_vision(req: VisionAnalyzeRequest, current_user: UserInfo = Depends(require_any_role)):
     """
     Standalone basic OCR endpoint.
     """
@@ -121,7 +123,7 @@ def analyze_vision(req: VisionAnalyzeRequest):
 
 
 @router.post("/vision/multimodal", response_model=MultimodalProcessResponse)
-def process_multimodal(req: MultimodalProcessRequest):
+def process_multimodal(req: MultimodalProcessRequest, current_user: UserInfo = Depends(require_any_role)):
     """
     Phase 5: Full multimodal analysis for scanned documents and P&ID engineering drawings.
     """
@@ -146,7 +148,7 @@ def process_multimodal(req: MultimodalProcessRequest):
 
 
 @router.post("/vision/evidence", response_model=VisualEvidenceResponse)
-def get_visual_evidence(req: VisualEvidenceRequest):
+def get_visual_evidence(req: VisualEvidenceRequest, current_user: UserInfo = Depends(require_any_role)):
     """
     Phase 5: Generate cropped thumbnail evidence for a given bounding box.
     """

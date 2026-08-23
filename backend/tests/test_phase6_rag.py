@@ -5,6 +5,7 @@ from database.session import Base, engine, get_db
 from sqlalchemy.orm import sessionmaker
 from database.models import Document
 from rag.retrieval import rag_search, generate_citations, verify_source
+from api.auth import get_current_user, UserInfo
 from unittest.mock import patch, MagicMock
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -21,8 +22,15 @@ app.dependency_overrides[get_db] = override_get_db
 @pytest.fixture(autouse=True)
 def setup_db():
     Base.metadata.create_all(bind=engine)
+    # Phase 9 added RBAC to every route — these tests exercise document
+    # upload/RAG behavior, not auth, so authenticate as a permitted role.
+    # Applied per-test (not at import time) since another test module's
+    # `dependency_overrides.clear()` can otherwise wipe out a module-level
+    # override before this file's tests actually run.
+    app.dependency_overrides[get_current_user] = lambda: UserInfo(username="test-user", role="admin")
     yield
     Base.metadata.drop_all(bind=engine)
+    app.dependency_overrides.pop(get_current_user, None)
 
 client = TestClient(app)
 

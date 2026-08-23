@@ -77,6 +77,19 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
     sm = TaskStateMachine(task_id, TaskStatus.CREATED)
 
     try:
+        # Phase 9 (M6): heuristic prompt-injection scan on the incoming request.
+        # Not blocking (it's the authenticated user's own input, and false
+        # positives would break legitimate prompts) — audited so a pattern of
+        # injection attempts is visible in the sovereignty/audit trail.
+        from security.prompt_injection import detect_prompt_injection
+        injection_check = detect_prompt_injection(req.prompt)
+        if injection_check["detected"]:
+            from database.repo import log_audit_action
+            log_audit_action(
+                db=db, action="PROMPT_INJECTION_DETECTED", user_id=current_user.username,
+                details=f"Task {task_id}: prompt matched heuristic(s) {injection_check['matches']}",
+            )
+
         # 2. CLASSIFY
         sm.transition(TaskStatus.CLASSIFIED)
         sm.persist_task_state(db)

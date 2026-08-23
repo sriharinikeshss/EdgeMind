@@ -99,6 +99,7 @@ class Document(Base):
     id = Column(String, primary_key=True, default=_uuid)
     filename = Column(String, nullable=False)
     version = Column(Integer, nullable=False, default=1)
+    classification = Column(String, nullable=False, default="internal")  # Phase 9: public|internal|confidential|restricted
     uploaded_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 
@@ -109,5 +110,23 @@ class AuditLog(Base):
     user_id = Column(String, nullable=True)
     action = Column(String, nullable=False)
     details = Column(Text, nullable=True)
+    prev_hash = Column(String, nullable=True)   # Phase 9: hash of the previous row (chain link)
+    hash = Column(String, nullable=True)        # Phase 9: sha256(prev_hash + action + details + created_at)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class Approval(Base):
+    """Phase 9: human-approval gate for HIGH-risk tool calls."""
+    __tablename__ = "approvals"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    task_id = Column(String, ForeignKey("tasks.id"), nullable=False)
+    step_id = Column(String, nullable=False)
+    tool_name = Column(String, nullable=False)
+    arguments = Column(Text, nullable=True)
+    status = Column(String, nullable=False, default="PENDING")  # PENDING | APPROVED | REJECTED
+    requested_by = Column(String, nullable=True)
+    decided_by = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    decided_at = Column(DateTime, nullable=True)
 
