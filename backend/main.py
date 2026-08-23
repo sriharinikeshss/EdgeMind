@@ -46,18 +46,6 @@ def health_check():
     return {"status": "ok"}
 
 
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-import os
-
-# Serve the static UI files from the UI directory
-ui_dir = os.path.join(os.path.dirname(__file__), "..", "ui")
-if os.path.isdir(ui_dir):
-    app.mount("/static", StaticFiles(directory=ui_dir), name="static")
-
 @app.get("/")
 def read_root():
-    ui_path = os.path.join(ui_dir, "edgemind_ui.html")
-    if os.path.isfile(ui_path):
-        return FileResponse(ui_path)
     return {"message": "Welcome to EdgeMind KAVACH API"}
