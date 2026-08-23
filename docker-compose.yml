@@ -66,6 +66,7 @@ services:
       - OLLAMA_CODING_MODEL=qwen2.5-coder:1.5b
       - OLLAMA_VISION_MODEL=llava
       - JWT_SECRET_KEY=kavach-dev-secret-change-in-production
+      - WATCHFILES_FORCE_POLLING=true
     depends_on:
       postgres:
         condition: service_healthy
