@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EdgeMind — Sovereign Agentic Workbench</title>
+<style>
+  :root{
+    --bg:#0a0e0c;
+    --bg-alt:#0d1210;
+    --panel:#111713;
+    --panel-2:#0e1310;
+    --border:#212822;
+    --border-soft:#1a201c;
+    --text:#eaeee9;
+    --text-dim:#8b958c;
+    --text-faint:#586058;
+    --accent:#7fd9a8;
+    --accent-strong:#a8ecc4;
+    --accent-wash:rgba(127,217,168,0.08);
+    --accent-wash-2:rgba(127,217,168,0.14);
+    --warn:#e3a53f;
+    --warn-wash:rgba(227,165,63,0.10);
+    --danger:#e0655a;
+    --danger-wash:rgba(224,101,90,0.10);
+    --radius:10px;
+    --radius-sm:6px;
+    --mono: ui-monospace, 'SF Mono', 'IBM Plex Mono', Menlo, Consolas, monospace;
+    --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);height:100%;}
+  ::selection{background:var(--accent-wash-2);color:var(--accent-strong);}
+  a{color:inherit;text-decoration:none;}
+  button{font-family:inherit;cursor:pointer;}
+
+  .app{display:flex;min-height:100vh;}
+
+  /* ---------- SIDEBAR ---------- */
+  .sidebar{
+    width:250px;flex-shrink:0;background:var(--bg-alt);
+    border-right:1px solid var(--border-soft);
+    display:flex;flex-direction:column;
+    padding:22px 16px;
+  }
+  .brand{display:flex;align-items:center;gap:9px;padding:2px 6px 22px;}
+  .brand-mark{color:var(--accent);font-size:18px;line-height:1;}
+  .brand-text{display:flex;flex-direction:column;}
+  .brand-title{font-family:var(--mono);font-weight:600;letter-spacing:2.5px;font-size:13px;color:var(--text);}
+  .brand-sub{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--text-faint);margin-top:2px;}
+
+  .nav-group{margin-bottom:22px;}
+  .nav-label{font-family:var(--mono);font-size:9.5px;letter-spacing:1.8px;color:var(--text-faint);padding:0 10px;margin-bottom:8px;}
+  .nav-item{
+    display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);
+    font-size:13px;color:var(--text-dim);margin-bottom:2px;border-left:2px solid transparent;
+    transition:background .15s, color .15s;
+  }
+  .nav-item svg{width:15px;height:15px;flex-shrink:0;opacity:.85;}
+  .nav-item:hover{background:var(--panel);color:var(--text);}
+  .nav-item.active{background:var(--accent-wash);color:var(--accent-strong);border-left:2px solid var(--accent);}
+  .nav-count{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text-faint);background:var(--panel);padding:1px 6px;border-radius:8px;}
+  .nav-item.active .nav-count{color:var(--accent);}
+
+  .sidebar-spacer{flex:1;}
+
+  .node-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:12px;margin-bottom:12px;
+  }
+  .node-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .node-status{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9.5px;letter-spacing:1px;color:var(--text-dim);}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);}
+  .verified-pill{font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--accent);}
+  .node-id{font-family:var(--mono);font-size:12.5px;color:var(--text);margin-bottom:2px;}
+  .node-note{font-size:11px;color:var(--text-faint);}
+
+  .user-row{display:flex;align-items:center;gap:9px;padding:6px 4px;}
+  .avatar{width:28px;height:28px;border-radius:50%;background:var(--panel);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10.5px;color:var(--accent);flex-shrink:0;}
+  .user-meta{display:flex;flex-direction:column;line-height:1.25;}
+  .user-name{font-size:12.5px;color:var(--text);}
+  .user-role{font-size:10.5px;color:var(--text-faint);}
+  .signout{margin-left:auto;font-size:11px;color:var(--text-faint);}
+  .signout:hover{color:var(--text-dim);}
+
+  /* ---------- MAIN ---------- */
+  .main{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 28px;border-bottom:1px solid var(--border-soft);
+  }
+  .breadcrumb{font-family:var(--mono);font-size:11px;letter-spacing:1.2px;color:var(--text-faint);}
+  .breadcrumb b{color:var(--text-dim);font-weight:600;}
+  .topbar-right{display:flex;align-items:center;gap:16px;}
+  .pill{
+    display:flex;align-items:center;gap:7px;padding:5px 11px;border-radius:20px;
+    font-family:var(--mono);font-size:10.5px;letter-spacing:1px;
+    background:var(--accent-wash);border:1px solid rgba(127,217,168,0.25);color:var(--accent);
+  }
+  .icon-btn{width:30px;height:30px;border-radius:50%;background:var(--panel);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-dim);}
+  .icon-btn svg{width:14px;height:14px;}
+
+  .content{padding:26px 28px 60px;flex:1;overflow-y:auto;}
+  .page{display:none;}
+  .page.active{display:block;animation:fadein .25s ease;}
+  @keyframes fadein{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+  .page-head{margin-bottom:22px;}
+  .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--text-faint);margin-bottom:6px;}
+  .page-title{font-family:var(--serif);font-size:30px;color:var(--text);font-weight:400;}
+  .page-desc{color:var(--text-dim);font-size:13.5px;margin-top:6px;}
+
+  /* Panels / cards */
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);}
+  .panel-head{display:flex;align-items:center;justify-content:between;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border-soft);}
+  .panel-head .eyebrow{margin:0 0 3px;}
+  .panel-title{font-size:14.5px;color:var(--text);font-weight:600;}
+  .panel-body{padding:16px 18px;}
+  .panel-action{font-family:var(--mono);font-size:10.5px;letter-spacing:.8px;color:var(--text-dim);display:flex;align-items:center;gap:5px;}
+  .panel-action:hover{color:var(--accent);}
+
+  .grid-2{display:grid;grid-template-columns:2.1fr 1fr;gap:18px;}
+  .grid-3-workspace{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px;}
+  .stack{display:flex;flex-direction:column;gap:18px;}
+
+  .tag{
+    font-family:var(--mono);font-size:9.5px;letter-spacing:.8px;padding:2px 7px;border-radius:4px;
+    border:1px solid rgba(127,217,168,0.3);color:var(--accent);background:var(--accent-wash);
+  }
+  .tag.vision{border-color:rgba(227,165,63,0.35);color:var(--warn);background:var(--warn-wash);}
+  .tag.muted{border-color:var(--border);color:var(--text-faint);background:transparent;}
+
+  .row-item{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border-soft);}
+  .row-item:last-child{border-bottom:none;}
+  .row-icon{width:32px;height:32px;border-radius:7px;background:var(--panel-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--text-dim);}
+  .row-icon svg{width:15px;height:15px;}
+  .row-main{min-width:0;flex:1;}
+  .row-title{font-size:13px;color:var(--text);}
+  .row-sub{font-size:11px;color:var(--text-faint);margin-top:2px;}
+  .row-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+  .link-arrow{color:var(--text-faint);font-size:11px;}
+
+  .btn{
+    display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:var(--radius-sm);
+    font-size:12.5px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);
+  }
+  .btn:hover{color:var(--text);border-color:#2c352f;}
+  .btn.primary{background:var(--accent-wash);border-color:rgba(127,217,168,0.3);color:var(--accent);}
+  .btn.primary:hover{background:var(--accent-wash-2);}
+  .btn svg{width:13px;height:13px;}
+  .btn-sm{padding:5px 9px;font-size:11px;}
+
+  .table{width:100%;border-collapse:collapse;}
+  .table th{
+    text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:1px;color:var(--text-faint);
+    padding:0 12px 10px;font-weight:500;border-bottom:1px solid var(--border-soft);
+  }
+  .table td{padding:12px;font-size:12.5px;color:var(--text-dim);border-bottom:1px solid var(--border-soft);}
+  .table tr:last-child td{border-bottom:none;}
+  .table tr:hover td{background:var(--panel-2);}
+  .mono{font-family:var(--mono);}
+  .col-strong{color:var(--text);}
+
+  .status-dot-row{display:flex;align-items:center;gap:6px;}
+  .status-dot-row .dot{width:5px;height:5px;}
+  .status-dot-row.warn .dot{background:var(--warn);box-shadow:0 0 5px var(--warn);}
+  .status-dot-row.idle .dot{background:var(--text-faint);box-shadow:none;}
+
+  .check{color:var(--accent);}
+  .cross{color:var(--text-faint);}
+
+  .metric-ring{position:relative;width:64px;height:64px;flex-shrink:0;}
+  .metric-ring svg{transform:rotate(-90deg);}
+  .metric-ring-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px;color:var(--accent);}
+  .metric-ring-label span{font-size:8px;color:var(--text-faint);}
+
+  .bar{height:5px;border-radius:4px;background:var(--panel-2);overflow:hidden;flex:1;}
+  .bar > div{height:100%;border-radius:4px;}
+  .bar.green > div{background:var(--accent);}
+  .bar.amber > div{background:var(--warn);}
+  .meter-row{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:10.5px;color:var(--text-faint);margin-bottom:9px;}
+  .meter-row .bar{margin:0 4px;}
+  .meter-val{width:32px;text-align:right;color:var(--text-dim);}
+
+  .flag-box{
+    display:flex;align-items:center;justify-content:space-between;background:var(--warn-wash);
+    border:1px solid rgba(227,165,63,0.25);border-radius:var(--radius-sm);padding:11px 14px;margin-top:12px;
+  }
+  .flag-box .flag-dot{width:7px;height:7px;border-radius:50%;background:var(--warn);flex-shrink:0;}
+  .flag-title{font-size:12.5px;color:var(--text);font-weight:600;}
+  .flag-sub{font-size:11px;color:var(--text-faint);margin-top:2px;}
+
+  .foot-note{display:flex;align-items:center;gap:16px;padding:12px 18px;border-top:1px solid var(--border-soft);font-family:var(--mono);font-size:10px;letter-spacing:.6px;color:var(--text-faint);}
+  .foot-note .dot{width:5px;height:5px;}
+
+  /* Tabs (Node settings) */
+  .tabs{display:flex;gap:4px;background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px;width:fit-content;margin-bottom:20px;}
+  .tab-btn{padding:7px 16px;border-radius:5px;font-size:12px;color:var(--text-faint);border:none;background:transparent;font-family:var(--mono);letter-spacing:.5px;}
+  .tab-btn.active{background:var(--panel);color:var(--accent);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;animation:fadein .2s ease;}
+
+  .role-grid{display:grid;grid-template-columns:140px repeat(5,1fr);gap:0;}
+  .role-grid .rh{font-family:var(--mono);font-size:9.5px;letter-spacing:1px;color:var(--text-faint);padding:10px 8px;border-bottom:1px solid var(--border-soft);}
+  .role-grid .rc{padding:10px 8px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;font-size:12px;color:var(--text-dim);}
+  .role-grid .rc.center{justify-content:center;}
+  .role-name{color:var(--text);font-weight:600;font-size:12.5px;}
+  .role-desc{font-size:10.5px;color:var(--text-faint);margin-top:2px;}
+
+  .empty{text-align:center;padding:40px 20px;color:var(--text-faint);}
+  .empty svg{width:26px;height:26px;margin-bottom:10px;opacity:.5;}
+  .empty-title{font-size:13px;color:var(--text-dim);margin-bottom:4px;}
+  .empty-sub{font-size:11.5px;}
+
+  .search-box{display:flex;align-items:center;gap:8px;background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 11px;width:240px;}
+  .search-box input{background:transparent;border:none;outline:none;color:var(--text);font-size:12px;width:100%;}
+  .search-box input::placeholder{color:var(--text-faint);}
+  .search-box svg{width:13px;height:13px;color:var(--text-faint);flex-shrink:0;}
+
+  .head-actions{display:flex;align-items:center;gap:10px;}
+
+  .chain-link{width:1px;height:14px;background:var(--border);margin:0 0 0 15px;}
+
+  @media (max-width: 980px){
+    .sidebar{display:none;}
+    .grid-2{grid-template-columns:1fr;}
+    .grid-3-workspace{grid-template-columns:1fr;}
+    .role-grid{grid-template-columns:100px repeat(5,minmax(60px,1fr));font-size:10px;}
+  }
+
+  /* ================= LOGIN ================= */
+  #login{
+    position:fixed;inset:0;display:flex;z-index:100;
+    background:var(--bg);
+  }
+  .login-left{
+    flex:1.05;position:relative;overflow:hidden;
+    background:
+      linear-gradient(var(--border-soft) 1px, transparent 1px) 0 0/72px 72px,
+      linear-gradient(90deg, var(--border-soft) 1px, transparent 1px) 0 0/72px 72px,
+      var(--bg);
+    display:flex;flex-direction:column;justify-content:space-between;
+    padding:44px 56px;
+  }
+  .login-left::before{
+    content:'';position:absolute;right:-140px;bottom:-140px;width:420px;height:420px;
+    border:1px solid rgba(127,217,168,0.18);border-radius:50%;
+  }
+  .login-left::after{
+    content:'';position:absolute;right:-40px;bottom:-40px;width:340px;height:340px;
+    border:1px solid rgba(227,165,63,0.18);border-radius:50%;
+  }
+  .login-brand{display:flex;align-items:center;gap:9px;position:relative;z-index:1;}
+  .login-brand .brand-mark{font-size:20px;}
+  .login-brand .brand-title{font-size:15px;letter-spacing:3px;}
+
+  .login-copy{position:relative;z-index:1;max-width:560px;}
+  .login-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:2.5px;color:var(--text-faint);margin-bottom:18px;}
+  .login-headline{font-family:var(--serif);font-size:58px;line-height:1.08;color:var(--text);font-weight:400;margin:0 0 22px;}
+  .login-headline .accent-line{color:var(--accent);display:block;}
+  .login-sub{font-size:15px;line-height:1.6;color:var(--text-dim);max-width:420px;}
+
+  .login-foot{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10.5px;letter-spacing:1px;color:var(--text-faint);position:relative;z-index:1;}
+
+  .login-right{
+    flex:0.86;background:#efe9de;color:#26241e;display:flex;flex-direction:column;
+    justify-content:center;padding:56px 72px;
+  }
+  .login-right .login-eyebrow{color:#8a8372;}
+  .login-right .login-headline{color:#1c1b16;font-size:42px;margin-bottom:10px;}
+  .login-right .login-sub{color:#6f6a5c;margin-bottom:36px;font-size:14px;}
+
+  .field-label{font-size:12.5px;font-weight:600;color:#3a3729;margin-bottom:8px;}
+  .field-wrap{display:flex;align-items:center;gap:10px;background:#f8f5ee;border:1px solid #ddd6c4;border-radius:6px;padding:13px 15px;margin-bottom:20px;}
+  .field-wrap svg{width:15px;height:15px;color:#8a8372;flex-shrink:0;}
+  .field-wrap input{border:none;background:transparent;outline:none;font-size:13.5px;color:#26241e;width:100%;font-family:var(--sans);}
+  .field-wrap input::placeholder{color:#a39c88;}
+
+  .login-btn{
+    width:100%;padding:14px;border-radius:6px;background:#16211b;color:#f4f1e9;border:none;
+    font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;
+    margin-top:4px;
+  }
+  .login-btn:hover{background:#1c2b22;}
+  .login-btn svg{width:14px;height:14px;}
+
+  .login-note{display:flex;align-items:center;gap:8px;font-size:11.5px;color:#8a8372;margin-top:22px;}
+  .login-note svg{width:14px;height:14px;color:#8a8372;flex-shrink:0;}
+  .login-help{font-size:11.5px;color:#a39c88;margin-top:60px;}
+  .login-help a{text-decoration:underline;}
+
+  @media (max-width: 900px){
+    #login{flex-direction:column;overflow-y:auto;}
+    .login-left,.login-right{flex:none;padding:32px 26px;}
+    .login-headline{font-size:38px;}
+    .login-right .login-headline{font-size:30px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN SCREEN ================= -->
+<div id="login">
+  <div class="login-left">
+    <div class="login-brand">
+      <span class="brand-mark">⌁</span>
+      <div class="brand-title" style="font-family:var(--mono);font-weight:600;">EDGEMIND</div>
+    </div>
+    <div class="login-copy">
+      <div class="login-eyebrow">LOCAL INTELLIGENCE / 00.01</div>
+      <h1 class="login-headline">Reasoning,<span class="accent-line">kept close.</span></h1>
+      <p class="login-sub">A sovereign workspace for teams who need powerful agents without the data leaving the room.</p>
+    </div>
+    <div class="login-foot"><span class="dot"></span>NODE 01 / AIR-GAPPED / VERIFIED</div>
+  </div>
+
+  <div class="login-right">
+    <div class="login-eyebrow">SECURE ACCESS</div>
+    <h1 class="login-headline">Welcome back.</h1>
+    <p class="login-sub">Sign in to your local intelligence workspace.</p>
+
+    <div class="field-label">Operator identity</div>
+    <div class="field-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      <input id="login-username" value="admin" autocomplete="username" />
+    </div>
+
+    <div class="field-label">Access key</div>
+    <div class="field-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      <input id="login-password" type="password" value="kavach123" autocomplete="current-password" />
+    </div>
+
+    <div id="login-error" style="display:none;color:var(--danger);font-size:12px;margin:-10px 0 16px;"></div>
+
+    <button class="login-btn" id="enter-workspace-btn">Enter workspace <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M8 7h9v9"/></svg></button>
+
+    <div class="login-note">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2 4 5v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V5l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>
+      Authenticated locally · no external identity provider
+    </div>
+    <div class="login-help">Need access? <a href="#">Contact your system administrator.</a></div>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">⌁</span>
+      <div class="brand-text">
+        <div class="brand-title">EDGEMIND</div>
+        <div class="brand-sub">CONTROL CENTER</div>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">WORKSPACE</div>
+      <div class="nav-item active" data-page="workspace">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13 2 3 14h8l-1 8 10-12h-8l1-8z"/></svg>
+        Agent workspace
+      </div>
+      <div class="nav-item" data-page="knowledge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        Knowledge library <span class="nav-count">12</span>
+      </div>
+      <div class="nav-item" data-page="artifacts">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        Artifacts <span class="nav-count">3</span>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">SYSTEM</div>
+      <div class="nav-item" data-page="audit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>
+        Audit trail
+      </div>
+      <div class="nav-item" data-page="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1z"/></svg>
+        Node settings
+      </div>
+    </div>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="node-card">
+      <div class="node-card-top">
+        <div class="node-status"><span class="dot"></span>LOCAL NODE</div>
+        <span class="verified-pill" id="node-verified-pill">…</span>
+      </div>
+      <div class="node-id">edgemind-node-01</div>
+      <div class="node-note" id="node-note">Checking system status…</div>
+    </div>
+
+    <div class="user-row">
+      <div class="avatar" id="user-avatar">·</div>
+      <div class="user-meta">
+        <div class="user-name" id="user-name">—</div>
+        <div class="user-role" id="user-role">—</div>
+      </div>
+      <a class="signout" id="signout-btn">Sign out</a>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <main class="main">
+    <div class="topbar">
+      <div class="breadcrumb">EDGEMIND / <b id="crumb">AGENT WORKSPACE</b></div>
+      <div class="topbar-right">
+        <div class="pill" id="topbar-pill"><span class="dot"></span>NODE ONLINE</div>
+        <div class="icon-btn" id="refresh-btn" title="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h4l2 8 4-16 2 8h6"/></svg></div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ============ PAGE: AGENT WORKSPACE ============ -->
+      <section class="page active" id="page-workspace">
+        <div class="page-head">
+          <div class="eyebrow" id="workspace-date"></div>
+          <div class="page-title" id="workspace-greeting">Good morning.</div>
+          <div class="page-desc">Your local agent is ready. What should we work through?</div>
+        </div>
+
+        <div class="grid-2">
+          <!-- LEFT: task + evidence + deliverables -->
+          <div class="stack">
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="eyebrow" id="task-id-label">CURRENT TASK</div>
+                  <div class="panel-title">Agent conversation</div>
+                </div>
+                <span class="tag" id="task-status-tag">READY</span>
+              </div>
+              <div class="panel-body" id="chat-messages">
+                <div class="empty">
+                  <div class="empty-title">No task running yet</div>
+                  <div class="empty-sub">Describe what you need below, or press "Generate document" once you have an answer to turn into a report.</div>
+                </div>
+              </div>
+              <div class="foot-note" style="border-top:1px solid var(--border-soft);padding:10px 14px;gap:8px;">
+                <span style="color:var(--text-faint);">📎</span>
+                <input id="prompt-input" placeholder="Ask EdgeMind to do something…" style="flex:1;background:transparent;border:none;outline:none;color:var(--text);font-size:13px;font-family:var(--sans);" />
+                <button class="btn btn-sm" id="generate-doc-btn" title="Ask the agent to turn its last answer into a downloadable document">📄 Generate document</button>
+                <button class="icon-btn" id="send-btn" style="color:var(--accent);" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+              </div>
+            </div>
+
+            <div class="grid-3-workspace" style="margin-top:0;">
+              <div class="panel">
+                <div class="panel-head">
+                  <div>
+                    <div class="eyebrow">EVIDENCE / RAG + VISION</div>
+                    <div class="panel-title">Source citations <span id="evidence-count" style="color:var(--text-faint);font-weight:400;">0</span></div>
+                  </div>
+                  <span class="panel-action" data-nav="knowledge">+ Add source</span>
+                </div>
+                <div class="panel-body" id="evidence-list" style="padding-top:6px;">
+                  <div class="empty"><div class="empty-sub">Run a task that searches documents or analyzes an image to see sources here.</div></div>
+                </div>
+              </div>
+
+              <div class="panel">
+                <div class="panel-head">
+                  <div>
+                    <div class="eyebrow">DELIVERABLES</div>
+                    <div class="panel-title">Artifacts <span id="deliverables-count" style="color:var(--text-faint);font-weight:400;">0</span></div>
+                  </div>
+                  <span class="panel-action" data-nav="artifacts">View all</span>
+                </div>
+                <div class="panel-body" id="deliverables-list" style="padding-top:12px;">
+                  <div class="empty"><div class="empty-sub">Generated files for this task will appear here.</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: live trace + sovereignty + validation -->
+          <div class="stack">
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="eyebrow">LIVE EXECUTION</div>
+                  <div class="panel-title">Agent trace</div>
+                </div>
+                <span class="pill" style="padding:3px 9px;">LIVE</span>
+              </div>
+              <div class="panel-body" id="trace-list"></div>
+              <div class="foot-note" style="border-top:none;padding-top:0;">
+                <span class="panel-action">View full trace ↗</span>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="eyebrow">SOVEREIGNTY STATUS</div>
+                  <div class="panel-title">Local &amp; protected</div>
+                </div>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--accent)" stroke-width="1.6"><path d="M12 2 4 5v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V5l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>
+              </div>
+              <div class="panel-body" id="sovereignty-widget">
+                <div class="empty-sub">Loading…</div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="eyebrow">VALIDATION ENGINE</div>
+                  <div class="panel-title">Grounding report</div>
+                </div>
+                <span class="tag" id="grounding-score-tag">— SCORE</span>
+              </div>
+              <div class="panel-body" id="validation-report-body">
+                <div class="empty"><div class="empty-sub">Run a task to see its validation report.</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ PAGE: KNOWLEDGE LIBRARY ============ -->
+      <section class="page" id="page-knowledge">
+        <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-end;">
+          <div>
+            <div class="eyebrow">RAG INDEX / 12 DOCUMENTS</div>
+            <div class="page-title">Knowledge library</div>
+            <div class="page-desc">SOPs, inspection reports, and drawings indexed for retrieval — every version tracked, nothing leaves this node.</div>
+          </div>
+          <div class="head-actions">
+            <div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="doc-search" placeholder="Search documents…"/></div>
+            <select id="upload-classification" class="btn" style="appearance:auto;">
+              <option value="internal">Internal</option>
+              <option value="public">Public</option>
+              <option value="confidential">Confidential</option>
+              <option value="restricted">Restricted</option>
+            </select>
+            <button class="btn primary" id="upload-doc-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>Upload</button>
+            <input type="file" id="doc-file-input" style="display:none;" />
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-body" id="knowledge-list" style="padding-top:6px;">
+            <div class="empty-sub">Loading…</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ PAGE: ARTIFACTS ============ -->
+      <section class="page" id="page-artifacts">
+        <div class="page-head">
+          <div class="eyebrow" id="artifacts-count-label">DELIVERABLES</div>
+          <div class="page-title">Artifacts</div>
+          <div class="page-desc">Generated files with hash-stamped integrity, ready for download or review.</div>
+        </div>
+        <div class="panel">
+          <div class="panel-body" id="artifacts-list" style="padding-top:6px;">
+            <div class="empty-sub">Loading…</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ PAGE: AUDIT TRAIL ============ -->
+      <section class="page" id="page-audit">
+        <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-end;">
+          <div>
+            <div class="eyebrow">HASH-CHAINED LOG</div>
+            <div class="page-title">Audit trail</div>
+            <div class="page-desc">Every model call, tool call, file access, and approval — chained and verifiable.</div>
+          </div>
+          <span class="tag" id="chain-status-tag">CHECKING…</span>
+        </div>
+        <div class="panel">
+          <div class="panel-body" id="audit-restricted" style="display:none;">
+            <div class="empty"><div class="empty-title">Admin access required</div><div class="empty-sub">The audit trail is restricted to the admin role.</div></div>
+          </div>
+          <table class="table" id="audit-table">
+            <thead><tr><th>TIME</th><th>ACTOR</th><th>EVENT</th><th>DETAIL</th><th>HASH</th><th></th></tr></thead>
+            <tbody id="audit-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ============ PAGE: NODE SETTINGS ============ -->
+      <section class="page" id="page-settings">
+        <div class="page-head">
+          <div class="eyebrow">SYSTEM CONFIGURATION</div>
+          <div class="page-title">Node settings</div>
+          <div class="page-desc">Model registry, access control, and sovereignty enforcement for edgemind-node-01.</div>
+        </div>
+
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="registry">Model registry</button>
+          <button class="tab-btn" data-tab="rbac">Security &amp; RBAC</button>
+          <button class="tab-btn" data-tab="sovereignty">Sovereignty</button>
+        </div>
+
+        <div class="tab-panel active" id="tab-registry">
+          <div class="panel">
+            <table class="table">
+              <thead><tr><th>MODEL</th><th>MODALITY</th><th>VRAM</th><th>QUANT</th><th>STATUS</th><th>HASH</th></tr></thead>
+              <tbody id="registry-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-rbac">
+          <div class="panel">
+            <div class="panel-body">
+              <div class="role-grid" style="grid-template-columns:140px repeat(4,1fr);">
+                <div class="rh"></div><div class="rh" style="text-align:center;">VIEW</div><div class="rh" style="text-align:center;">EXECUTE TOOLS</div><div class="rh" style="text-align:center;">GENERATE ARTIFACTS</div><div class="rh" style="text-align:center;">APPROVE / ADMIN</div>
+                <div id="rbac-rows" style="display:contents;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top:18px;">
+            <div class="panel-head">
+              <div>
+                <div class="eyebrow">HUMAN-APPROVAL GATE</div>
+                <div class="panel-title">Pending approvals <span id="approvals-count" style="color:var(--text-faint);font-weight:400;">0</span></div>
+              </div>
+            </div>
+            <div class="panel-body" id="approvals-list" style="padding-top:6px;">
+              <div class="empty-sub">Loading…</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-sovereignty">
+          <div class="panel-body" id="sovereignty-restricted" style="display:none;">
+            <div class="empty"><div class="empty-title">Admin access required</div><div class="empty-sub">Sovereignty details are restricted to the admin role.</div></div>
+          </div>
+          <div class="grid-2" id="sovereignty-grid">
+            <div class="stack">
+              <div class="panel">
+                <div class="panel-head"><div><div class="eyebrow">NETWORK</div><div class="panel-title">Egress</div></div><span class="tag" id="egress-tag">CHECKING…</span></div>
+                <div class="panel-body" id="egress-body">
+                  <div class="empty-sub">Loading…</div>
+                </div>
+              </div>
+              <div class="panel">
+                <div class="panel-head"><div><div class="eyebrow">STORAGE</div><div class="panel-title">Encryption at rest</div></div></div>
+                <div class="panel-body" id="encryption-body">
+                  <div class="empty-sub">Loading…</div>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><div><div class="eyebrow">MODEL INTEGRITY</div><div class="panel-title">Signed manifest checks</div></div></div>
+              <div class="panel-body" id="model-hash-list">
+                <div class="empty-sub">Loading…</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ================= CONFIG & STATE =================
+  const API_BASE = window.location.hostname && window.location.hostname !== ''
+    ? `${window.location.protocol}//${window.location.hostname}:8000`
+    : 'http://localhost:8000';
+
+  const iconDoc = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>`;
+  const iconDownload = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>`;
+
+  let auth = null; // {token, username, role}
+  let lastTaskId = null;
+  let lastAnswerText = '';
+
+  function loadAuth(){
+    try { auth = JSON.parse(localStorage.getItem('edgemind_auth') || 'null'); } catch(e){ auth = null; }
+    return auth;
+  }
+  function saveAuth(a){ auth = a; localStorage.setItem('edgemind_auth', JSON.stringify(a)); }
+  function clearAuth(){ auth = null; localStorage.removeItem('edgemind_auth'); }
+
+  // apiFetch: JSON in/out, auth header, 401 -> logout. `raw:true` returns the Response (for blobs).
+  async function apiFetch(path, opts={}){
+    const headers = Object.assign({}, opts.headers || {});
+    if (auth && auth.token) headers['Authorization'] = 'Bearer ' + auth.token;
+    if (opts.json !== undefined){
+      headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(opts.json);
+    }
+    const resp = await fetch(API_BASE + path, Object.assign({}, opts, { headers }));
+    if (resp.status === 401){
+      clearAuth();
+      showLogin('Session expired — please sign in again.');
+      throw new Error('401 Unauthorized');
+    }
+    if (opts.raw) return resp;
+    const text = await resp.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch(e){ data = text; }
+    if (!resp.ok){
+      const detail = (data && data.detail) ? data.detail : (typeof data === 'string' ? data : resp.statusText);
+      const err = new Error(detail || `HTTP ${resp.status}`);
+      err.status = resp.status;
+      err.data = data;
+      throw err;
+    }
+    return data;
+  }
+
+  function fmtTime(iso){
+    if (!iso) return '—';
+    try { return new Date(iso).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}); }
+    catch(e){ return String(iso); }
+  }
+  function fmtDateTime(iso){
+    if (!iso) return '—';
+    try { return new Date(iso).toLocaleString(); } catch(e){ return String(iso); }
+  }
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function shortHash(h){ return h ? (h.length > 12 ? h.slice(0,6) + '…' + h.slice(-4) : h) : '—'; }
+  function initials(name){
+    if (!name) return '·';
+    return name.trim().slice(0,2).toUpperCase();
+  }
+
+  // ================= LOGIN =================
+  const loginEl = document.getElementById('login');
+  const loginErrorEl = document.getElementById('login-error');
+
+  function showLogin(message){
+    loginEl.style.display = 'flex';
+    loginEl.style.opacity = '1';
+    if (message){ loginErrorEl.textContent = message; loginErrorEl.style.display = 'block'; }
+    else { loginErrorEl.style.display = 'none'; }
+  }
+  function hideLogin(){
+    loginEl.style.transition = 'opacity .35s ease';
+    loginEl.style.opacity = '0';
+    setTimeout(()=>{ loginEl.style.display = 'none'; }, 350);
+  }
+
+  async function doLogin(){
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value;
+    const btn = document.getElementById('enter-workspace-btn');
+    loginErrorEl.style.display = 'none';
+    btn.textContent = 'Signing in…';
+    try {
+      const resp = await fetch(API_BASE + '/api/auth/login', {
+        method: 'POST',
+        headers: {'Content-Type':'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({ username, password }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.detail || 'Login failed');
+      saveAuth({ token: data.access_token, username: data.username, role: data.role });
+      hideLogin();
+      initApp();
+    } catch(e){
+      loginErrorEl.textContent = e.message || 'Login failed — check your credentials.';
+      loginErrorEl.style.display = 'block';
+    } finally {
+      btn.innerHTML = 'Enter workspace <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M8 7h9v9"/></svg>';
+    }
+  }
+  document.getElementById('enter-workspace-btn').addEventListener('click', doLogin);
+  document.getElementById('login-password').addEventListener('keydown', e=>{ if (e.key === 'Enter') doLogin(); });
+
+  document.getElementById('signout-btn').addEventListener('click', ()=>{
+    clearAuth();
+    window.location.reload();
+  });
+
+  // ================= NAV =================
+  const crumbEl = document.getElementById('crumb');
+  const labels = { workspace:'AGENT WORKSPACE', knowledge:'KNOWLEDGE LIBRARY', artifacts:'ARTIFACTS', audit:'AUDIT TRAIL', settings:'NODE SETTINGS' };
+  const pageLoaders = {
+    knowledge: loadDocuments,
+    artifacts: loadArtifacts,
+    audit: loadAudit,
+    settings: () => { loadModels(); loadApprovals(); loadSovereigntyTab(); renderRbacMatrix(); },
+  };
+  function goToPage(page){
+    document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+    const navItem = document.querySelector(`.nav-item[data-page="${page}"]`);
+    if (navItem) navItem.classList.add('active');
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('page-'+page).classList.add('active');
+    crumbEl.textContent = labels[page] || page.toUpperCase();
+    if (pageLoaders[page]) pageLoaders[page]();
+  }
+  document.querySelectorAll('.nav-item').forEach(item=>{
+    item.addEventListener('click', ()=> goToPage(item.dataset.page));
+  });
+  document.querySelectorAll('[data-nav]').forEach(el=>{
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', ()=> goToPage(el.dataset.nav));
+  });
+
+  // ---------------- Node settings tabs ----------------
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+      document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ================= WORKSPACE: chat / agent =================
+  const chatEl = document.getElementById('chat-messages');
+  const promptInput = document.getElementById('prompt-input');
+
+  function appendChatTurn(role, text, meta){
+    if (chatEl.querySelector('.empty')) chatEl.innerHTML = '';
+    const isUser = role === 'user';
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:10px;margin-bottom:14px;';
+    row.innerHTML = `
+      <div class="avatar">${isUser ? initials(auth.username) : '⌁'}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:.5px;color:var(--text-faint);margin-bottom:6px;">
+          ${isUser ? escapeHtml(auth.username).toUpperCase() : 'EDGEMIND'} · ${fmtTime(new Date().toISOString())}${meta ? ' &nbsp; ' + escapeHtml(meta) : ''}
+        </div>
+        <div style="font-size:13.5px;line-height:1.6;color:${isUser ? 'var(--text-dim)' : 'var(--text)'};white-space:pre-wrap;">${escapeHtml(text)}</div>
+      </div>`;
+    chatEl.appendChild(row);
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+
+  function setTaskStatus(status){
+    const tag = document.getElementById('task-status-tag');
+    tag.textContent = status;
+  }
+
+  async function runAgent(prompt){
+    if (!prompt || !prompt.trim()) return;
+    appendChatTurn('user', prompt);
+    setTaskStatus('RUNNING');
+    document.getElementById('trace-list').innerHTML = `<div class="empty-sub">Executing…</div>`;
+    promptInput.value = '';
+    promptInput.disabled = true;
+    try {
+      const data = await apiFetch('/api/agent', { method: 'POST', json: { prompt } });
+      lastTaskId = data.task_id;
+      lastAnswerText = data.final_output || '';
+      document.getElementById('task-id-label').textContent = 'TASK #' + data.task_id.slice(0,8).toUpperCase();
+      setTaskStatus(data.status);
+      appendChatTurn('agent', data.final_output || '(no output)', data.status);
+      renderTrace(data.events || [], data.steps || []);
+      renderEvidence(data.steps || []);
+      renderValidation(data);
+      await loadDeliverables(data.task_id, data.events || []);
+    } catch(e){
+      setTaskStatus('FAILED');
+      appendChatTurn('agent', 'Error: ' + e.message, 'ERROR');
+      document.getElementById('trace-list').innerHTML = `<div class="empty-sub">Run failed: ${escapeHtml(e.message)}</div>`;
+    } finally {
+      promptInput.disabled = false;
+      promptInput.focus();
+    }
+  }
+
+  document.getElementById('send-btn').addEventListener('click', ()=> runAgent(promptInput.value));
+  promptInput.addEventListener('keydown', e=>{ if (e.key === 'Enter') runAgent(promptInput.value); });
+
+  document.getElementById('generate-doc-btn').addEventListener('click', ()=>{
+    const basis = lastAnswerText || promptInput.value || 'the current conversation';
+    const prompt = `Generate a downloadable report document summarizing: ${basis}`;
+    runAgent(prompt);
+  });
+
+  function renderTrace(events, steps){
+    const list = document.getElementById('trace-list');
+    if (!events.length && !steps.length){
+      list.innerHTML = `<div class="empty-sub">No trace yet.</div>`;
+      return;
+    }
+    const rows = steps.length ? steps.map(s=>({
+      title: s.action || s.tool || s.step_id,
+      sub: s.tool || '',
+      state: s.success ? 'done' : 'failed',
+    })) : events.map(e=>({ title: e.type, sub: e.step_id || e.tool || '', state: 'done' }));
+    list.innerHTML = rows.map(s=>`
+      <div class="row-item">
+        <div class="row-icon" style="color:${s.state==='done'?'var(--accent)':'var(--danger)'};">
+          ${s.state==='done'?'✓':'✕'}
+        </div>
+        <div class="row-main"><div class="row-title">${escapeHtml(s.title)}</div><div class="row-sub">${escapeHtml(s.sub)}</div></div>
+      </div>`).join('');
+  }
+
+  function renderEvidence(steps){
+    const ragSteps = steps.filter(s => s.tool === 'rag_search' && s.success);
+    const visionSteps = steps.filter(s => (s.tool === 'analyze_scanned_document' || s.tool === 'analyze_engineering_drawing' || s.tool === 'run_ocr') && s.success);
+    const count = ragSteps.length + visionSteps.length;
+    document.getElementById('evidence-count').textContent = count;
+    const list = document.getElementById('evidence-list');
+    if (!count){
+      list.innerHTML = `<div class="empty"><div class="empty-sub">No sources were retrieved for this task.</div></div>`;
+      return;
+    }
+    const ragRows = ragSteps.map(s => `
+      <div class="row-item">
+        <div class="row-icon">${iconDoc}</div>
+        <div class="row-main"><div class="row-title">${escapeHtml(s.step_id)} · rag_search</div><div class="row-sub">${escapeHtml((s.output||'').slice(0,140))}</div></div>
+        <div class="row-right"><span class="tag">RAG</span></div>
+      </div>`);
+    const visionRows = visionSteps.map(s => `
+      <div class="row-item">
+        <div class="row-icon">${iconDoc}</div>
+        <div class="row-main"><div class="row-title">${escapeHtml(s.step_id)} · ${escapeHtml(s.tool)}</div><div class="row-sub">${escapeHtml((s.output||'').slice(0,140))}</div></div>
+        <div class="row-right"><span class="tag vision">VISION</span></div>
+      </div>`);
+    list.innerHTML = ragRows.concat(visionRows).join('');
+  }
+
+  async function loadDeliverables(taskId, events){
+    const list = document.getElementById('deliverables-list');
+    const createdCount = (events || []).filter(e => e.type === 'artifact_created').length;
+    try {
+      const artifacts = await apiFetch('/api/artifacts?task_id=' + encodeURIComponent(taskId));
+      document.getElementById('deliverables-count').textContent = artifacts.length;
+      if (!artifacts.length){
+        list.innerHTML = `<div class="empty"><div class="empty-sub">No artifacts generated for this task.</div></div>`;
+        return;
+      }
+      list.innerHTML = artifacts.map(a => artifactRow(a)).join('');
+      wireArtifactButtons(list);
+    } catch(e){
+      list.innerHTML = `<div class="empty-sub">Could not load artifacts: ${escapeHtml(e.message)}</div>`;
+    }
+  }
+
+  function renderValidation(data){
+    const score = (typeof data.grounding_score === 'number') ? Math.round(data.grounding_score * 100) : null;
+    document.getElementById('grounding-score-tag').textContent = score === null ? '— SCORE' : `${score}% SCORE`;
+    const report = data.validation_report || {};
+    const unsupported = report.unsupported_claims || [];
+    const body = document.getElementById('validation-report-body');
+    body.innerHTML = `
+      <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Schema / non-empty check <span class="${data.validation_passed ? 'check' : 'cross'}">${data.validation_passed ? '✓ pass' : '✕ fail'}</span></div></div>
+      <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Unsupported claims <span style="color:var(--text-faint);">${unsupported.length}</span></div></div>
+      <div class="row-item" style="border-bottom:none;"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Retry count <span style="color:var(--text-faint);">${data.retry_count || 0} / 3${report.escalated ? ' · escalated' : ''}</span></div></div>
+    `;
+  }
+
+  // ================= WORKSPACE: sovereignty mini-widget =================
+  async function loadSovereigntyWidget(){
+    const widget = document.getElementById('sovereignty-widget');
+    if (auth.role !== 'admin'){
+      widget.innerHTML = `<div class="empty-sub">Sovereignty details are restricted to the admin role.</div>`;
+      return;
+    }
+    try {
+      const report = await apiFetch('/api/sovereignty/report');
+      const blocked = report.egress_check && report.egress_check.egress_blocked;
+      const pct = blocked ? 100 : 0;
+      const dash = (169.6 * pct / 100).toFixed(1);
+      widget.innerHTML = `
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+          <div class="metric-ring">
+            <svg width="64" height="64">
+              <circle cx="32" cy="32" r="27" stroke="var(--panel-2)" stroke-width="5" fill="none"/>
+              <circle cx="32" cy="32" r="27" stroke="${blocked?'var(--accent)':'var(--danger)'}" stroke-width="5" fill="none" stroke-dasharray="${dash} 169.6" stroke-linecap="round"/>
+            </svg>
+            <div class="metric-ring-label">${pct}<span>%</span></div>
+          </div>
+          <div>
+            <div style="font-size:13px;color:var(--text);font-weight:600;">${blocked ? 'No egress detected' : 'EGRESS DETECTED'}</div>
+            <div style="font-size:11px;color:var(--text-faint);">${escapeHtml(report.egress_check.detail || '')}</div>
+          </div>
+        </div>
+        <div class="foot-note" style="border-top:none;padding:0;">
+          <span><span class="dot" style="background:${report.audit_log_chain && report.audit_log_chain.valid ? 'var(--accent)' : 'var(--danger)'};"></span> Audit chain ${report.audit_log_chain && report.audit_log_chain.valid ? 'verified' : 'BROKEN'}</span>
+        </div>`;
+    } catch(e){
+      widget.innerHTML = `<div class="empty-sub">Could not load sovereignty status: ${escapeHtml(e.message)}</div>`;
+    }
+  }
+
+  // ================= KNOWLEDGE LIBRARY =================
+  async function loadDocuments(){
+    const list = document.getElementById('knowledge-list');
+    try {
+      const docs = await apiFetch('/api/documents');
+      if (!docs.length){
+        list.innerHTML = `<div class="empty"><div class="empty-title">No documents yet</div><div class="empty-sub">Upload an SOP, report, or drawing to make it searchable.</div></div>`;
+        return;
+      }
+      list.innerHTML = docs.map(d => `
+        <div class="row-item" data-id="${d.id}">
+          <div class="row-icon">${iconDoc}</div>
+          <div class="row-main"><div class="row-title">${escapeHtml(d.filename)}</div><div class="row-sub">v${d.version} · uploaded ${fmtDateTime(d.uploaded_at)}</div></div>
+          <div class="row-right">
+            <span class="tag muted">${escapeHtml(d.classification || 'internal')}</span>
+            ${auth.role === 'admin' ? `<button class="btn btn-sm doc-delete-btn" data-id="${d.id}">Delete</button>` : ''}
+          </div>
+        </div>`).join('');
+      list.querySelectorAll('.doc-delete-btn').forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
+          if (!confirm('Delete this document?')) return;
+          try { await apiFetch('/api/documents/' + btn.dataset.id, { method: 'DELETE' }); loadDocuments(); }
+          catch(e){ alert('Delete failed: ' + e.message); }
+        });
+      });
+    } catch(e){
+      list.innerHTML = `<div class="empty-sub">Could not load documents: ${escapeHtml(e.message)}</div>`;
+    }
+  }
+
+  document.getElementById('upload-doc-btn').addEventListener('click', ()=> document.getElementById('doc-file-input').click());
+  document.getElementById('doc-file-input').addEventListener('change', async (e)=>{
+    const file = e.target.files[0];
+    if (!file) return;
+    const classification = document.getElementById('upload-classification').value;
+    const form = new FormData();
+    form.append('file', file);
+    form.append('classification', classification);
+    try {
+      await apiFetch('/api/documents/upload', { method: 'POST', body: form });
+      loadDocuments();
+    } catch(err){
+      alert('Upload failed: ' + err.message);
+    } finally {
+      e.target.value = '';
+    }
+  });
+
+  document.getElementById('doc-search').addEventListener('input', (e)=>{
+    const q = e.target.value.toLowerCase();
+    document.querySelectorAll('#knowledge-list .row-item').forEach(row=>{
+      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+
+  // ================= ARTIFACTS =================
+  function artifactRow(a){
+    return `
+      <div class="row-item" data-id="${a.id}">
+        <div class="row-icon" style="color:var(--warn);">${iconDoc}</div>
+        <div class="row-main"><div class="row-title">${escapeHtml(a.filename)}</div><div class="row-sub">${escapeHtml(a.content_type||'')} · hash ${shortHash(a.file_hash)} · ${fmtDateTime(a.created_at)}</div></div>
+        <div class="row-right">
+          <span class="artifact-verify-status" style="font-size:11px;color:var(--text-faint);">not verified</span>
+          <button class="btn btn-sm artifact-verify-btn" data-id="${a.id}">Verify</button>
+          <div class="icon-btn artifact-download-btn" data-id="${a.id}" data-name="${escapeHtml(a.filename)}" title="Download">${iconDownload}</div>
+        </div>
+      </div>`;
+  }
+
+  function wireArtifactButtons(container){
+    container.querySelectorAll('.artifact-verify-btn').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const statusEl = btn.parentElement.querySelector('.artifact-verify-status');
+        statusEl.textContent = 'checking…';
+        try {
+          const res = await apiFetch('/api/artifacts/' + btn.dataset.id + '/verify');
+          statusEl.innerHTML = res.verified ? '<span class="check">✓ verified</span>' : '<span class="cross">✕ hash mismatch</span>';
+        } catch(e){ statusEl.textContent = 'error'; }
+      });
+    });
+    container.querySelectorAll('.artifact-download-btn').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        try {
+          const resp = await apiFetch('/api/artifacts/' + btn.dataset.id + '/download', { raw: true });
+          const blob = await resp.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = btn.dataset.name || 'artifact';
+          document.body.appendChild(a); a.click(); a.remove();
+          URL.revokeObjectURL(url);
+        } catch(e){ alert('Download failed: ' + e.message); }
+      });
+    });
+  }
+
+  async function loadArtifacts(){
+    const list = document.getElementById('artifacts-list');
+    try {
+      const artifacts = await apiFetch('/api/artifacts');
+      document.getElementById('artifacts-count-label').textContent = `DELIVERABLES / ${artifacts.length} ARTIFACT${artifacts.length===1?'':'S'}`;
+      if (!artifacts.length){
+        list.innerHTML = `<div class="empty"><div class="empty-title">No artifacts yet</div><div class="empty-sub">Ask the agent to generate a report to see it here.</div></div>`;
+        return;
+      }
+      list.innerHTML = artifacts.map(a => artifactRow(a)).join('');
+      wireArtifactButtons(list);
+    } catch(e){
+      list.innerHTML = `<div class="empty-sub">Could not load artifacts: ${escapeHtml(e.message)}</div>`;
+    }
+  }
+
+  // ================= AUDIT TRAIL =================
+  async function loadAudit(){
+    const restricted = document.getElementById('audit-restricted');
+    const table = document.getElementById('audit-table');
+    if (auth.role !== 'admin'){
+      restricted.style.display = 'block';
+      table.style.display = 'none';
+      document.getElementById('chain-status-tag').textContent = 'ADMIN ONLY';
+      return;
+    }
+    restricted.style.display = 'none';
+    table.style.display = 'table';
+    try {
+      const report = await apiFetch('/api/audit/export');
+      const chainTag = document.getElementById('chain-status-tag');
+      chainTag.textContent = report.chain_verification.valid ? 'CHAIN VERIFIED' : 'CHAIN BROKEN';
+      chainTag.style.color = report.chain_verification.valid ? '' : 'var(--danger)';
+      const rows = report.entries.slice().reverse();
+      document.getElementById('audit-body').innerHTML = rows.map(a => `
+        <tr>
+          <td class="mono">${fmtDateTime(a.created_at)}</td>
+          <td class="col-strong">${escapeHtml(a.user_id || 'system')}</td>
+          <td><span class="tag muted">${escapeHtml(a.action)}</span></td>
+          <td>${escapeHtml(a.details || '')}</td>
+          <td class="mono">${shortHash(a.hash)}</td>
+          <td class="check">${a.hash ? '✓' : ''}</td>
+        </tr>`).join('');
+    } catch(e){
+      document.getElementById('audit-body').innerHTML = `<tr><td colspan="6">Could not load audit trail: ${escapeHtml(e.message)}</td></tr>`;
+    }
+  }
+
+  // ================= NODE SETTINGS: model registry =================
+  async function loadModels(){
+    const body = document.getElementById('registry-body');
+    try {
+      const models = await apiFetch('/api/models');
+      body.innerHTML = models.map(m => `
+        <tr>
+          <td class="col-strong mono">${escapeHtml(m.model_id)}</td>
+          <td>${escapeHtml((m.modality||[]).join(', '))}</td>
+          <td class="mono">${m.vram_gb != null ? m.vram_gb + ' GB' : '—'}</td>
+          <td class="mono">—</td>
+          <td><span class="status-dot-row ${m.loaded ? '' : 'idle'}"><span class="dot"></span>${m.loaded ? 'loaded' : 'idle'}</span></td>
+          <td class="${m.hash_verified ? 'check' : 'cross'}" title="${escapeHtml(m.hash_detail||'')}">${m.hash_verified ? '✓ verified' : '✕ unverified'}</td>
+        </tr>`).join('');
+    } catch(e){
+      body.innerHTML = `<tr><td colspan="6">Could not load model registry: ${escapeHtml(e.message)}</td></tr>`;
+    }
+  }
+
+  // ================= NODE SETTINGS: RBAC matrix (static, reflects real rules) =================
+  function renderRbacMatrix(){
+    const roles = [
+      { name:'Admin', desc:'Full system control', perms:[1,1,1,1] },
+      { name:'Operator', desc:'Run tasks, tools & generate artifacts', perms:[1,1,1,0] },
+      { name:'Viewer', desc:'Read-only access', perms:[1,0,0,0] },
+    ];
+    document.getElementById('rbac-rows').innerHTML = roles.map(r=>`
+      <div class="rc"><div><div class="role-name">${r.name}</div><div class="role-desc">${r.desc}</div></div></div>
+      ${r.perms.map(p=>`<div class="rc center">${p? '<span class="check">✓</span>':'<span class="cross">–</span>'}</div>`).join('')}
+    `).join('');
+  }
+
+  // ================= NODE SETTINGS: approvals =================
+  async function loadApprovals(){
+    const list = document.getElementById('approvals-list');
+    try {
+      const approvals = await apiFetch('/api/approvals');
+      document.getElementById('approvals-count').textContent = approvals.length;
+      if (!approvals.length){
+        list.innerHTML = `<div class="empty-sub">No sensitive-tool calls are awaiting approval.</div>`;
+        return;
+      }
+      list.innerHTML = approvals.map(a => `
+        <div class="row-item" data-id="${a.id}">
+          <div class="row-main">
+            <div class="row-title">${escapeHtml(a.tool_name)} · task ${escapeHtml((a.task_id||'').slice(0,8))}</div>
+            <div class="row-sub">requested by ${escapeHtml(a.requested_by || 'unknown')} · ${fmtDateTime(a.created_at)}</div>
+          </div>
+          <div class="row-right">
+            ${auth.role === 'admin' ? `
+              <button class="btn btn-sm approve-btn" data-id="${a.id}" data-decision="APPROVED">Approve</button>
+              <button class="btn btn-sm reject-btn" data-id="${a.id}" data-decision="REJECTED">Reject</button>
+            ` : '<span class="tag muted">PENDING</span>'}
+          </div>
+        </div>`).join('');
+      list.querySelectorAll('.approve-btn, .reject-btn').forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
+          try {
+            await apiFetch('/api/approvals/' + btn.dataset.id + '/decide', { method:'POST', json:{ decision: btn.dataset.decision } });
+            loadApprovals();
+          } catch(e){ alert('Failed: ' + e.message); }
+        });
+      });
+    } catch(e){
+      list.innerHTML = `<div class="empty-sub">Could not load approvals: ${escapeHtml(e.message)}</div>`;
+    }
+  }
+
+  // ================= NODE SETTINGS: sovereignty tab =================
+  async function loadSovereigntyTab(){
+    const restricted = document.getElementById('sovereignty-restricted');
+    const grid = document.getElementById('sovereignty-grid');
+    if (auth.role !== 'admin'){
+      restricted.style.display = 'block';
+      grid.style.display = 'none';
+      return;
+    }
+    restricted.style.display = 'none';
+    grid.style.display = 'grid';
+    try {
+      const report = await apiFetch('/api/sovereignty/report');
+      const egressTag = document.getElementById('egress-tag');
+      egressTag.textContent = report.egress_check.egress_blocked ? 'DEFAULT-DENY' : 'EGRESS DETECTED';
+      egressTag.style.color = report.egress_check.egress_blocked ? '' : 'var(--danger)';
+
+      document.getElementById('egress-body').innerHTML = `
+        <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Outbound probe (${escapeHtml(report.egress_check.probe)}) <span class="${report.egress_check.egress_blocked?'check':'cross'}">${report.egress_check.egress_blocked?'✓ blocked':'✕ reachable'}</span></div></div>
+        <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Flagged external connections <span style="color:var(--text-dim);">${(report.network_monitor.flagged_external_connections||[]).length}</span></div></div>
+        <div class="row-item" style="border-bottom:none;"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Allowed internal hosts <span style="color:var(--text-dim);">${(report.network_monitor.allowed_hosts||[]).join(', ')}</span></div></div>
+      `;
+      document.getElementById('encryption-body').innerHTML = `
+        <div class="row-item" style="border-bottom:none;"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Artifact encryption at rest <span class="${report.artifact_encryption_enabled?'check':'cross'}">${report.artifact_encryption_enabled?'✓ enabled':'– disabled'}</span></div></div>
+      `;
+      document.getElementById('model-hash-list').innerHTML = Object.entries(report.model_hash_verification || {}).map(([name, status]) => `
+        <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">${escapeHtml(name)} <span class="${status.verified?'check':'cross'}" title="${escapeHtml(status.detail||'')}">${status.verified?'✓ SHA-256 match':'✕ unverified'}</span></div></div>
+      `).join('');
+    } catch(e){
+      grid.innerHTML = `<div class="empty-sub">Could not load sovereignty report: ${escapeHtml(e.message)}</div>`;
+    }
+  }
+
+  // ================= INIT =================
+  function initApp(){
+    document.getElementById('user-name').textContent = auth.username;
+    document.getElementById('user-role').textContent = auth.role.charAt(0).toUpperCase() + auth.role.slice(1);
+    document.getElementById('user-avatar').textContent = initials(auth.username);
+    document.getElementById('node-verified-pill').textContent = 'VERIFIED';
+    document.getElementById('node-note').textContent = 'All systems operational';
+    document.getElementById('topbar-pill').innerHTML = '<span class="dot"></span>NODE ONLINE';
+    const now = new Date();
+    document.getElementById('workspace-date').textContent = now.toDateString().toUpperCase();
+    document.getElementById('workspace-greeting').textContent = `Good ${now.getHours() < 12 ? 'morning' : now.getHours() < 18 ? 'afternoon' : 'evening'}, ${auth.username}.`;
+    goToPage('workspace');
+    loadSovereigntyWidget();
+  }
+
+  document.getElementById('refresh-btn').addEventListener('click', ()=>{
+    const activePage = document.querySelector('.nav-item.active');
+    if (activePage) goToPage(activePage.dataset.page);
+    loadSovereigntyWidget();
+  });
+
+  // ---------------- BOOTSTRAP ----------------
+  if (loadAuth() && auth.token){
+    hideLogin();
+    initApp();
+  } else {
+    showLogin();
+  }
+})();
+</script>
+</body>
+</html>

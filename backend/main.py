@@ -4,6 +4,7 @@ EdgeMind KAVACH API — main entry point.
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from api import tasks, auth, agent, rag, vision, documents, artifacts, security
 from database.session import create_tables
 
@@ -32,6 +33,11 @@ app.include_router(vision.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 app.include_router(artifacts.router, prefix="/api")
 app.include_router(security.router, prefix="/api")
+
+# Serves the akhila-dev control-center UI (backend/static/edgemind_ui.html) at
+# GET /ui/edgemind_ui.html — same-origin as the API it calls, so no CORS
+# configuration is needed for it specifically.
+app.mount("/ui", StaticFiles(directory="static", html=True), name="ui")
 
 
 @app.on_event("startup")
