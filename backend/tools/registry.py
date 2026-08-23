@@ -340,16 +340,31 @@ def _analyze_engineering_drawing_handler(image_bytes: bytes = None, image_path: 
     if res.get("status") != "ok":
         # Handle the grace failure tested in stub
         return {"status": res.get("status", "error"), "stdout": res.get("message", "Error analyzing drawing")}
-    return {"status": "ok", "stdout": "Extraction complete."}
+    
+    # Build a rich text summary for the downstream direct_llm synthesis step
+    components = res.get("components", [])
+    instruments = res.get("instruments", [])
+    annotations = res.get("annotations", [])
+    diagram_summary = res.get("diagram_summary", "")
+    
+    lines = [f"Drawing Analysis: {diagram_summary}"]
+    if components:
+        lines.append("\nComponents detected:")
+        for c in components:
+            lines.append(f"  - {c.get('tag')} (type={c.get('type')}, confidence={c.get('confidence', 0):.0%})")
+    if instruments:
+        lines.append("\nInstruments detected:")
+        for i in instruments:
+            lines.append(f"  - {i.get('tag')} (prefix={i.get('prefix')}, type={i.get('type')}, confidence={i.get('confidence', 0):.0%})")
+    if annotations:
+        lines.append("\nAnnotations: " + ", ".join(a.get("text", "") for a in annotations))
+    
+    stdout_summary = "\n".join(lines)
+    return {"status": "ok", "stdout": stdout_summary, **{k: v for k, v in res.items() if k not in ("status",)}}
 
 
 
-def _analyze_engineering_drawing_handler(image_bytes: bytes = None, image_path: str = None, **kwargs) -> dict:
-    from vision.multimodal_processor import analyze_engineering_drawing
-    target = image_bytes or image_path
-    if not target:
-        return {"status": "error", "message": "No image provided for engineering drawing analysis."}
-    return analyze_engineering_drawing(target)
+
 
 
 def _generate_visual_evidence_handler(image_bytes: bytes = None, image_path: str = None, bbox: dict = None, label: str = "", **kwargs) -> dict:

@@ -190,7 +190,8 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
                 sr.step_id = step.step_id
                 sr.action = step.action
 
-            final_output = "\n".join(str(r.output or "") for r in step_results if r.success)
+            # Use the output of the last successful step as the final answer
+            final_output = next((str(r.output or "") for r in reversed(step_results) if r.success), "")
 
             if execution_result["status"] != "COMPLETED":
                 failed = next((r for r in execution_result.get("results", []) if not r.get("success")), None)
