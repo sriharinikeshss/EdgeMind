@@ -442,8 +442,10 @@
                   <div class="empty-sub">Describe what you need below, or press "Generate document" once you have an answer to turn into a report.</div>
                 </div>
               </div>
+              <div id="chat-attachment-preview" style="display:none;padding:8px 14px 0;"></div>
               <div class="foot-note" style="border-top:1px solid var(--border-soft);padding:10px 14px;gap:8px;">
-                <span style="color:var(--text-faint);">📎</span>
+                <button class="icon-btn" id="attach-btn" style="color:var(--text-faint);width:26px;height:26px;" title="Attach a document — stored as an artifact"><span style="font-size:14px;">📎</span></button>
+                <input type="file" id="chat-file-input" style="display:none;" />
                 <input id="prompt-input" placeholder="Ask EdgeMind to do something…" style="flex:1;background:transparent;border:none;outline:none;color:var(--text);font-size:13px;font-family:var(--sans);" />
                 <button class="btn btn-sm" id="generate-doc-btn" title="Ask the agent to turn its last answer into a downloadable document">📄 Generate document</button>
                 <button class="icon-btn" id="send-btn" style="color:var(--accent);" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
@@ -671,9 +673,7 @@
   'use strict';
 
   // ================= CONFIG & STATE =================
-  const API_BASE = window.location.hostname && window.location.hostname !== ''
-    ? `${window.location.protocol}//${window.location.hostname}:8000`
-    : 'http://localhost:8000';
+  const API_BASE = window.location.origin;
 
   const iconDoc = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>`;
   const iconDownload = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>`;
@@ -847,13 +847,20 @@
 
   async function runAgent(prompt){
     if (!prompt || !prompt.trim()) return;
-    appendChatTurn('user', prompt);
+    const attachment = pendingAttachment;
+    appendChatTurn('user', prompt + (attachment ? `\n\n📎 ${attachment.name}` : ''));
     setTaskStatus('RUNNING');
     document.getElementById('trace-list').innerHTML = `<div class="empty-sub">Executing…</div>`;
     promptInput.value = '';
     promptInput.disabled = true;
+    if (attachment) clearPendingAttachment();
     try {
-      const data = await apiFetch('/api/agent', { method: 'POST', json: { prompt } });
+      const payload = { prompt };
+      if (attachment) {
+        payload.image_base64 = attachment.base64;
+        payload.filename = attachment.name;
+      }
+      const data = await apiFetch('/api/agent', { method: 'POST', json: payload });
       lastTaskId = data.task_id;
       lastAnswerText = data.final_output || '';
       document.getElementById('task-id-label').textContent = 'TASK #' + data.task_id.slice(0,8).toUpperCase();
@@ -873,14 +880,59 @@
     }
   }
 
-  document.getElementById('send-btn').addEventListener('click', ()=> runAgent(promptInput.value));
-  promptInput.addEventListener('keydown', e=>{ if (e.key === 'Enter') runAgent(promptInput.value); });
+  document.getElementById('send-btn').addEventListener('click', ()=>{
+    const prompt = promptInput.value.trim() || (pendingAttachment ? `Analyze the attached file: ${pendingAttachment.name}` : '');
+    runAgent(prompt);
+  });
+  promptInput.addEventListener('keydown', e=>{ if (e.key === 'Enter' && !e.shiftKey) {
+    const prompt = promptInput.value.trim() || (pendingAttachment ? `Analyze the attached file: ${pendingAttachment.name}` : '');
+    runAgent(prompt);
+  }});
 
   document.getElementById('generate-doc-btn').addEventListener('click', ()=>{
     const basis = lastAnswerText || promptInput.value || 'the current conversation';
     const prompt = `Generate a downloadable report document summarizing: ${basis}`;
     runAgent(prompt);
   });
+
+  // ---------------- Chat attachments: send as base64 to agent ----------------
+  const attachBtn = document.getElementById('attach-btn');
+  const chatFileInput = document.getElementById('chat-file-input');
+  const attachmentPreview = document.getElementById('chat-attachment-preview');
+
+  // Accept images AND PDFs in the chat file picker
+  chatFileInput.setAttribute('accept', 'image/*,application/pdf,.pdf,.txt');
+
+  // Pending attachment state {name, base64, mime}
+  let pendingAttachment = null;
+
+  function clearPendingAttachment(){
+    pendingAttachment = null;
+    attachmentPreview.style.display = 'none';
+    attachmentPreview.innerHTML = '';
+    chatFileInput.value = '';
+  }
+
+  attachBtn.addEventListener('click', ()=> chatFileInput.click());
+
+  chatFileInput.addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      pendingAttachment = { name: file.name, base64: ev.target.result, mime: file.type };
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      attachmentPreview.style.display = 'block';
+      attachmentPreview.innerHTML = `
+        <div class="row-item" style="border:none;padding:6px 0;">
+          <div class="row-icon">${isPdf ? '📄' : '🖼'}</div>
+          <div class="row-main"><div class="row-title">${escapeHtml(file.name)}</div><div class="row-sub">${isPdf ? 'PDF · will be read by agent' : 'Image · will be analyzed by agent'}</div></div>
+          <button onclick="clearPendingAttachment()" style="background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:14px;">✕</button>
+        </div>`;
+    };
+    reader.readAsDataURL(file);
+  });
+
 
   function renderTrace(events, steps){
     const list = document.getElementById('trace-list');
@@ -1246,6 +1298,8 @@
     const now = new Date();
     document.getElementById('workspace-date').textContent = now.toDateString().toUpperCase();
     document.getElementById('workspace-greeting').textContent = `Good ${now.getHours() < 12 ? 'morning' : now.getHours() < 18 ? 'afternoon' : 'evening'}, ${auth.username}.`;
+    // Attaching a document requires operator/admin (POST /api/artifacts/upload) — hide for viewer.
+    document.getElementById('attach-btn').style.display = (auth.role === 'viewer') ? 'none' : '';
     goToPage('workspace');
     loadSovereigntyWidget();
   }
@@ -1263,6 +1317,9 @@
   } else {
     showLogin();
   }
+  // Expose to global scope for inline onclick handlers
+  window.clearPendingAttachment = clearPendingAttachment;
+
 })();
 </script>
 </body>
