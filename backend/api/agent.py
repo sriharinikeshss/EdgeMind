@@ -95,19 +95,40 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
         sm.persist_task_state(db)
         task_type = planner.classify_task(req.prompt)
 
-        # Decode image_base64 to file
+        # Decode image_base64 to file — convert PDFs to PNG so the vision tools
+        # always receive a proper image, never raw PDF bytes.
         file_attachments = None
         if req.image_base64:
-            import base64
+            import base64 as _b64
             import os
             os.makedirs("/app/data/workspaces", exist_ok=True)
-            image_path = f"/app/data/workspaces/{task_id}_attached.png"
             b64_data = req.image_base64
             if "," in b64_data:
-                b64_data = b64_data.split(",")[1]
+                b64_data = b64_data.split(",", 1)[1]
             try:
+                raw_bytes = _b64.b64decode(b64_data)
+
+                # Detect file type by magic bytes — never trust the filename/extension
+                is_pdf = raw_bytes[:4] == b"%PDF" or "application/pdf" in req.image_base64
+
+                if is_pdf:
+                    # Convert first page of PDF → PNG using PyMuPDF
+                    try:
+                        import fitz  # PyMuPDF
+                        doc = fitz.open("pdf", raw_bytes)
+                        page = doc.load_page(0)
+                        pix = page.get_pixmap(dpi=200)
+                        raw_bytes = pix.tobytes("png")
+                        logger.info("Converted PDF attachment to PNG for task %s", task_id)
+                    except ImportError:
+                        logger.error("PyMuPDF not installed — cannot convert PDF attachment. "
+                                     "Add pymupdf to requirements.txt")
+                    except Exception as e:
+                        logger.error("Failed to rasterize PDF attachment: %s", e)
+
+                image_path = f"/app/data/workspaces/{task_id}_attached.png"
                 with open(image_path, "wb") as f:
-                    f.write(base64.b64decode(b64_data))
+                    f.write(raw_bytes)
                 file_attachments = [image_path]
             except Exception as e:
                 logger.error("Failed to decode attached image: %s", e)

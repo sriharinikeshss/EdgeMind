@@ -79,20 +79,45 @@ def _get_image_bytes(image_base64: str | None, image_path: str | None) -> bytes:
         # Strip data URL prefix if present
         if "," in image_base64:
             image_base64 = image_base64.split(",", 1)[1]
-        
+
         raw_bytes = base64.b64decode(image_base64)
-        
+
+        # Also detect PDF by magic bytes (%PDF header) in case content-type was missing
+        if not is_pdf and raw_bytes[:4] == b"%PDF":
+            is_pdf = True
+
         if is_pdf:
+            # Primary: PyMuPDF (fitz) — fast, high-quality PDF rasterisation
             try:
                 import fitz  # PyMuPDF
                 doc = fitz.open("pdf", raw_bytes)
                 page = doc.load_page(0)
-                pix = page.get_pixmap(dpi=300)
-                raw_bytes = pix.tobytes("png")
+                pix = page.get_pixmap(dpi=200)
+                return pix.tobytes("png")
+            except ImportError:
+                logger.warning("PyMuPDF not installed, falling back to pypdf for PDF conversion.")
             except Exception as e:
-                logger.error("Failed to convert PDF to image: %s", e)
-                raise ValueError(f"Failed to convert PDF: {e}")
-                
+                logger.error("PyMuPDF failed to convert PDF: %s", e)
+
+            # Fallback: pypdf to extract page as image using Pillow
+            try:
+                import io as _io
+                from pypdf import PdfReader
+                from PIL import Image as PILImage
+                reader = PdfReader(_io.BytesIO(raw_bytes))
+                page = reader.pages[0]
+                # Extract any embedded images from the first page
+                images = list(page.images)
+                if images:
+                    return images[0].data
+                # No embedded images — render page as a blank placeholder
+                raise ValueError("PDF has no embedded images on first page; cannot render without PyMuPDF.")
+            except Exception as e:
+                logger.error("pypdf fallback also failed: %s", e)
+                raise ValueError(
+                    f"Cannot convert PDF to image. Install pymupdf: pip install pymupdf. Details: {e}"
+                )
+
         return raw_bytes
     elif image_path:
         with open(image_path, "rb") as f:
