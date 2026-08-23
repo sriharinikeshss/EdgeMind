@@ -27,6 +27,7 @@ validator = Validator()
 class AgentRequest(BaseModel):
     prompt: str
     expected_schema: dict | None = None   # optional output schema for validation
+    image_base64: str | None = None
 
 
 class StepResult(BaseModel):
@@ -36,6 +37,7 @@ class StepResult(BaseModel):
     output: str | None = None
     error: str | None = None
     tool: str | None = None
+    tool_data: dict | None = None
 
 
 class AgentResponse(BaseModel):
@@ -66,15 +68,30 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
     sm = TaskStateMachine(task_id, TaskStatus.CREATED)
 
     try:
+        # 1.5 Handle attachments
+        file_attachments = []
+        if req.image_base64:
+            import base64
+            from api.vision import _get_image_bytes
+            import os
+            
+            os.makedirs("/app/data/workspaces", exist_ok=True)
+            # Default to .png but we can use _get_image_bytes to handle pdf-to-image
+            img_bytes = _get_image_bytes(req.image_base64, None)
+            temp_path = f"/app/data/workspaces/{task_id}_attached.png"
+            with open(temp_path, "wb") as f:
+                f.write(img_bytes)
+            file_attachments.append(temp_path)
+
         # 2. CLASSIFY
         sm.transition(TaskStatus.CLASSIFIED)
         sm.persist_task_state(db)
-        task_type = planner.classify_task(req.prompt)
+        task_type = planner.classify_task(req.prompt, file_attachments)
 
         # 3. PLAN
         sm.transition(TaskStatus.PLANNED)
         sm.persist_task_state(db)
-        plan = planner.generate_plan(task_id, req.prompt)
+        plan = planner.generate_plan(task_id, req.prompt, file_attachments)
 
         # Log routing decision
         from models.registry import registry
@@ -111,6 +128,7 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
                 output=str(r.get("output", ""))[:2000],
                 error=r.get("error"),
                 tool=r.get("tool"),
+                tool_data=r.get("tool_data")
             ))
         for i, (step, sr) in enumerate(zip(plan.steps, step_results)):
             sr.step_id = step.step_id

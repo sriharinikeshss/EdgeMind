@@ -85,8 +85,8 @@ export function Chat() {
     setIsLoading(true);
 
     try {
-      if (currentImage) {
-        // Phase 5 Multimodal Analysis pipeline
+      if (currentImage && !agentMode) {
+        // Phase 5 Multimodal Analysis pipeline (Direct Mode)
         const visionResp = await fetch(`${API_URL}/api/vision/multimodal`, {
           method: 'POST',
           headers: getHeaders(),
@@ -117,18 +117,40 @@ export function Chat() {
         };
         setMessages(prev => [...prev, agentMessage]);
       } else if (agentMode) {
-        // Phase 3: full agent loop
+        // Phase 3: full agent loop (now with Multimodal support)
+        const payload: any = { prompt: userMessage.text };
+        if (currentImage) {
+            payload.image_base64 = currentImage;
+        }
+        
         const response = await fetch(`${API_URL}/api/agent`, {
           method: 'POST',
           headers: getHeaders(),
-          body: JSON.stringify({ prompt: userMessage.text }),
+          body: JSON.stringify(payload),
         });
         const data = await response.json();
+
+        let visionData = undefined;
+        if (currentImage && data.steps) {
+            const visionStep = data.steps.find((s: any) => s.tool === 'analyze_scanned_document' || s.tool === 'analyze_engineering_drawing' || s.tool === 'run_ocr');
+            if (visionStep && visionStep.tool_data) {
+                visionData = visionStep.tool_data;
+            } else if (visionStep && visionStep.output) {
+                try { 
+                    // Fallback to parsing output string if tool_data is not available
+                    let parsed = JSON.parse(visionStep.output);
+                    if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+                    visionData = parsed;
+                } catch (e) {}
+            }
+        }
 
         const agentMessage: Message = {
           id: data.task_id,
           sender: 'agent',
           text: data.final_output || '[No output]',
+          image_preview: currentImage,
+          multimodal_result: visionData,
           trace: {
             steps: data.steps ?? [],
             events: data.events ?? [],
