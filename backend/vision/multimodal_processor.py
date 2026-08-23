@@ -122,11 +122,14 @@ def analyze_scanned_document(image_input: bytes | str) -> dict:
     
     # Step 1: Preprocessing
     if _PIL_AVAILABLE and Image is not None:
-        img = Image.open(io.BytesIO(raw_bytes))
-        preprocessed = _pil_preprocess(img)
-        buf = io.BytesIO()
-        preprocessed.save(buf, format="PNG")
-        proc_bytes = buf.getvalue()
+        try:
+            img = Image.open(io.BytesIO(raw_bytes))
+            preprocessed = _pil_preprocess(img)
+            buf = io.BytesIO()
+            preprocessed.save(buf, format="PNG")
+            proc_bytes = buf.getvalue()
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to open image file: {e}. Are you sure it's an image and not a document like a PDF or DOCX?"}
     else:
         proc_bytes = raw_bytes
 

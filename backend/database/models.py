@@ -4,7 +4,7 @@ Tables: users, tasks, task_steps, artifacts
 """
 import uuid
 import datetime
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Integer, Float
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Integer, Boolean, Float
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -94,12 +94,34 @@ class ToolCall(Base):
 
 
 class Document(Base):
+    """Phase 6: uploaded knowledge-base documents (SOPs, manuals, etc.)."""
     __tablename__ = "documents"
 
     id = Column(String, primary_key=True, default=_uuid)
     filename = Column(String, nullable=False)
+    content_hash = Column(String, nullable=False)   # sha256 of raw bytes — dedup + versioning key
     version = Column(Integer, nullable=False, default=1)
-    uploaded_at = Column(DateTime, default=datetime.datetime.utcnow)
+    classification = Column(String, nullable=False, default="internal")
+    superseded = Column(Boolean, nullable=False, default=False)
+    uploaded_by = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    chunks = relationship("DocumentChunk", back_populates="document", cascade="all, delete-orphan")
+
+
+class DocumentChunk(Base):
+    """Phase 6: one embedded chunk of a Document, linked to its Qdrant point."""
+    __tablename__ = "document_chunks"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    document_id = Column(String, ForeignKey("documents.id"), nullable=False)
+    chunk_index = Column(Integer, nullable=False)
+    page_no = Column(Integer, nullable=True)
+    text = Column(Text, nullable=False)
+    qdrant_point_id = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    document = relationship("Document", back_populates="chunks")
 
 
 class AuditLog(Base):
