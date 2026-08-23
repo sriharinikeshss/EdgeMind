@@ -11,7 +11,7 @@ document.getElementById('enter-workspace-btn').addEventListener('click', async (
     const fd = new URLSearchParams();
     fd.append('username', user);
     fd.append('password', pass);
-    const res = await fetch(`${API}/auth/token`, { method: 'POST', body: fd });
+    const res = await fetch(`${API}/auth/login`, { method: 'POST', body: fd });
     if(res.ok) {
       const data = await res.json();
       token = data.access_token;
