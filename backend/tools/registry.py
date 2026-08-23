@@ -183,10 +183,20 @@ def _execute_python_handler(code: str = None, script: str = None, prompt: str = 
     return res
 
 
-def _rag_search_handler(query: str = None, prompt: str = None, top_k: int = 5, collection: str = "kavach_docs", filters: dict = None, **kwargs) -> str:
+def _rag_search_handler(query: str = None, prompt: str = None, top_k: int = 5, collection: str = "kavach_docs", filters: dict = None, **kwargs) -> dict:
     q = query or prompt or kwargs.get("text") or ""
-    from rag.retrieval import rag_search
-    return rag_search(q, filters=filters)
+    from api.rag import _get_query_embedding, _search_qdrant, QDRANT_COLLECTION, TOP_K
+    from rag.retrieval import generate_citations
+    
+    vec = _get_query_embedding(q)
+    hits = _search_qdrant(vec, collection or QDRANT_COLLECTION, top_k or TOP_K)
+    stdout = generate_citations(hits)
+    
+    return {
+        "status": "ok",
+        "stdout": stdout,
+        "citations": hits
+    }
 
 
 def _direct_llm_handler(prompt: str = None, query: str = None, **kwargs) -> str:

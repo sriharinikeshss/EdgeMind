@@ -57,6 +57,7 @@ class AgentResponse(BaseModel):
     validation_report: dict | None = None
     retry_count: int = 0
     artifacts: list[dict] = []
+    model_used: str | None = None
 
 
 from api.auth import get_current_user, UserInfo
@@ -323,6 +324,7 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
             validation_report=validation_report,
             retry_count=retry_count,
             artifacts=artifacts_list,
+            model_used=model_id,
         )
 
     except Exception as exc:

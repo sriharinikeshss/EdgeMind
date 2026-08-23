@@ -109,6 +109,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
     crumbEl.textContent = labels[page] || 'WORKBENCH';
 
     if (page === 'knowledge') loadDocuments();
+      fetchSovereignty();
     if (page === 'artifacts') loadArtifacts();
     if (page === 'audit') loadAuditLogs();
   });
@@ -132,6 +133,7 @@ document.getElementById('refresh-all-btn')?.addEventListener('click', () => {
 
 function loadAllData() {
   loadDocuments();
+      fetchSovereignty();
   loadArtifacts();
   loadAuditLogs();
 }
@@ -225,7 +227,7 @@ async function submitAgentTask() {
     <div class="chat-msg agent" id="${agentMsgId}">
       <div class="avatar">EM</div>
       <div class="chat-body">
-        <div class="chat-meta">EDGEMIND · ${now} &nbsp; LOCAL AGENTIC REASONING</div>
+        <div class="chat-meta">EDGEMIND · ${now} &nbsp; LOCAL AGENTIC REASONING<span id="agent-model-${agentMsgId}" style="color:var(--primary);"></span></div>
         <div class="chat-text" style="display:flex;align-items:center;gap:8px;color:var(--text-dim);">
           <span class="spinner"></span> Orchestrating plan, invoking tools &amp; synthesizing findings...
         </div>
@@ -324,7 +326,24 @@ async function submitAgentTask() {
       if (data.steps) {
         data.steps.forEach(s => {
           if (s.tool === 'rag_search' && s.result) {
-            citations.push({ name: 'RAG Knowledge Search', sub: 'Semantic context retrieved', tag: 'RAG' });
+            try {
+              let parsed = typeof s.result === 'string' ? JSON.parse(s.result) : s.result;
+              // Check tool_data from backend
+              let toolData = s.tool_data || parsed;
+              if (toolData && toolData.citations) {
+                toolData.citations.forEach(cit => {
+                  citations.push({ 
+                    name: 'RAG Doc: ' + (cit.doc_id || 'Unknown').substring(0,25), 
+                    sub: cit.text ? cit.text.substring(0, 55) + '...' : 'Context retrieved', 
+                    tag: 'RAG' 
+                  });
+                });
+              } else {
+                citations.push({ name: 'RAG Knowledge Search', sub: 'Semantic context retrieved', tag: 'RAG' });
+              }
+            } catch (e) {
+               citations.push({ name: 'RAG Knowledge Search', sub: 'Semantic context retrieved', tag: 'RAG' });
+            }
           }
           if ((s.tool === 'analyze_scanned_document' || s.tool === 'run_ocr') && s.result) {
             citations.push({ name: 'Visual Evidence / OCR', sub: 'Extracted text & tables', tag: 'VISION' });
@@ -403,6 +422,7 @@ knowledgeFileInput.addEventListener('change', async (e) => {
     if (res.ok) {
       alert(`Document "${file.name}" uploaded and indexed into Qdrant successfully!`);
       loadDocuments();
+      fetchSovereignty();
     } else {
       const err = await res.json();
       alert(`Upload failed: ${err.detail || res.statusText}`);
@@ -459,17 +479,35 @@ function renderDocuments(docs) {
         <div class="row-icon">${iconDoc}</div>
         <div class="row-main">
           <div class="row-title">${escapeHtml(d.filename)}</div>
-          <div class="row-sub">Version ${d.version || 1} · Indexed in Qdrant</div>
+          <div class="row-sub">Version ${d.version || 1} ·• Indexed in Qdrant</div>
         </div>
         <div class="row-right">
           <span class="tag ${tag === 'VISION' ? 'vision' : ''}">${tag}</span>
           <span class="tag muted">${escapeHtml(d.classification || 'internal')}</span>
           <span style="font-size:11px;color:var(--text-faint);width:82px;text-align:right;">${dateStr}</span>
+          <button onclick="deleteDocument('${d.id}')" class="icon-btn" style="margin-left:8px;" title="Delete">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
         </div>
       </div>
     `;
   }).join('');
 }
+
+window.deleteDocument = async function(id) {
+  if (!confirm("Are you sure you want to delete this document?")) return;
+  try {
+    const res = await fetch(`${API}/documents/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error("Failed to delete");
+    loadDocuments();
+      fetchSovereignty();
+  } catch (err) {
+    alert(err.message);
+  }
+};
 
 // ---------------- ARTIFACTS PAGE ----------------
 const artifactsList = document.getElementById('artifacts-list');
@@ -603,4 +641,40 @@ function formatMarkdown(text) {
   // Inline code
   clean = clean.replace(/`([^`]+)`/g, '<code class="mono" style="background:var(--panel-2);padding:2px 5px;border-radius:3px;">$1</code>');
   return clean;
+}
+
+
+// ---------------- SOVEREIGNTY STATUS ----------------
+async function fetchSovereignty() {
+  try {
+    const res = await fetch(`${API}/sovereignty/report`, { headers: getHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    
+    const sovTitle = document.getElementById('sov-title');
+    const sovScore = document.getElementById('sov-score');
+    const sovMsg = document.getElementById('sov-msg');
+    const sovSub = document.querySelector('.sov-details .sov-sub');
+    
+    if (data.sovereign) {
+      sovTitle.innerHTML = 'Local &amp; protected';
+      sovTitle.nextElementSibling.setAttribute('stroke', 'var(--success)');
+      sovScore.textContent = '100';
+      sovMsg.textContent = 'No egress detected';
+      sovSub.textContent = 'Air-gapped verification passed';
+    } else {
+      sovTitle.innerHTML = 'External egress detected';
+      sovTitle.nextElementSibling.setAttribute('stroke', 'var(--danger)');
+      sovScore.textContent = '65';
+      
+      const egressStr = data.egress_check && !data.egress_check.egress_blocked ? 'Internet reachable. ' : '';
+      const flags = (data.network_monitor && data.network_monitor.flagged_external_connections && data.network_monitor.flagged_external_connections.length > 0) ? `${data.network_monitor.flagged_external_connections.length} external connections.` : '';
+      
+      sovMsg.textContent = egressStr + flags || 'Network anomaly detected';
+      sovMsg.style.color = 'var(--danger)';
+      sovSub.textContent = 'Warning: Not strictly air-gapped';
+    }
+  } catch (err) {
+    console.error("Sovereignty fetch failed", err);
+  }
 }
