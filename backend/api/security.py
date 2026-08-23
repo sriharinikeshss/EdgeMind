@@ -23,6 +23,28 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+@router.get("/models")
+def list_models(current_user: UserInfo = Depends(require_operator)):
+    """UI-facing model registry table: modality/VRAM/capabilities from
+    ModelRegistry.models, plus each model's live hash-verification status
+    (Phase 9) — reuses verify_model_hash(), no duplicated logic."""
+    from models.registry import registry
+    rows = []
+    for model_id, info in registry.models.items():
+        hash_status = registry.verify_model_hash(model_id)
+        rows.append({
+            "model_id": model_id,
+            "modality": info.get("modality", []),
+            "vram_gb": info.get("vram_gb"),
+            "latency_profile": info.get("latency_profile"),
+            "capabilities": info.get("capabilities", []),
+            "loaded": registry.health_check_model(model_id),
+            "hash_verified": hash_status["verified"],
+            "hash_detail": hash_status["detail"],
+        })
+    return rows
+
+
 @router.get("/sovereignty/report")
 def sovereignty_report(db: Session = Depends(get_db), current_user: UserInfo = Depends(require_admin)):
     from security.sovereignty import generate_sovereignty_report

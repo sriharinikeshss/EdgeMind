@@ -151,11 +151,14 @@ def generate_sovereignty_report(db=None) -> dict:
         except Exception as exc:
             model_hash_status[model_id] = {"verified": False, "detail": str(exc)}
 
+    from artifacts.storage import ARTIFACT_ENCRYPTION_ENABLED
+
     report = {
         "sovereign": egress["egress_blocked"] and not network["flagged_external_connections"],
         "egress_check": egress,
         "network_monitor": network,
         "model_hash_verification": model_hash_status,
+        "artifact_encryption_enabled": ARTIFACT_ENCRYPTION_ENABLED,
         "rbac_protected_routes": [
             "/api/agent", "/api/tasks", "/api/rag/search", "/api/vision/*",
             "/api/documents/*", "/api/artifacts/*", "/api/audit/*", "/api/sovereignty/*",

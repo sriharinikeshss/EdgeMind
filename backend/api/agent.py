@@ -101,7 +101,16 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
             import base64
             import os
             os.makedirs("/app/data/workspaces", exist_ok=True)
-            image_path = f"/app/data/workspaces/{task_id}_attached.png"
+            
+            ext = ".png"
+            if req.filename and "." in req.filename:
+                ext = "." + req.filename.split(".")[-1]
+            elif req.image_base64.startswith("data:application/pdf"):
+                ext = ".pdf"
+            elif req.image_base64.startswith("data:text/"):
+                ext = ".txt"
+                
+            image_path = f"/app/data/workspaces/{task_id}_attached{ext}"
             b64_data = req.image_base64
             if "," in b64_data:
                 b64_data = b64_data.split(",")[1]
