@@ -178,6 +178,13 @@ class Executor:
         elif "prompt" not in params and step.action:
             params["prompt"] = step.action
 
+        from tools.registry import ARTIFACT_TOOL_NAMES
+        if tool_name in ARTIFACT_TOOL_NAMES:
+            if "title" not in params or not params["title"]:
+                params["title"] = step.action or "Approval Note"
+            if "content" not in params and ctx_str:
+                params["content"] = ctx_str
+
         try:
             if tool_name == "direct_llm":
                 prompt = params.get("prompt", step.action)

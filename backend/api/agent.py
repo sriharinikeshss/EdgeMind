@@ -225,11 +225,15 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
                  if r.tool in ("analyze_scanned_document", "analyze_engineering_drawing") and r.tool_data),
                 None,
             )
-            # Claims come from the answer itself (the last successful step, typically
-            # a direct_llm/generate_* step) — NOT the full final_output concatenation,
-            # which would otherwise include the rag_search step's own citation text
-            # as a "claim" that trivially scores against itself and inflates grounding.
-            answer_text = next((r.output or "" for r in reversed(step_results) if r.success), final_output)
+            # Claims come from the actual textual reasoning/summary step (skipping artifact
+            # JSON receipts like {"status": "ok", "id": ...}) — so grounding is scored
+            # on the synthesized analysis against the source-of-truth.
+            from tools.registry import ARTIFACT_TOOL_NAMES
+            non_artifact_outputs = [
+                r.output for r in reversed(step_results)
+                if r.success and r.tool not in ARTIFACT_TOOL_NAMES and r.output
+            ]
+            answer_text = non_artifact_outputs[0] if non_artifact_outputs else final_output
             claims = validator.extract_claims(answer_text)
             if rag_text:
                 grounding_score = validator.calculate_grounding_score(claims, rag_text)
