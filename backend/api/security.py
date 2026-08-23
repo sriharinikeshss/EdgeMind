@@ -24,25 +24,25 @@ router = APIRouter()
 
 
 @router.get("/sovereignty/report")
-def sovereignty_report(db: Session = Depends(get_db), current_user: UserInfo = Depends(require_admin)):
+def sovereignty_report(db: Session = Depends(get_db), current_user: UserInfo = Depends(require_operator)):
     from security.sovereignty import generate_sovereignty_report
     return generate_sovereignty_report(db=db)
 
 
 @router.get("/sovereignty/egress-check")
-def egress_check(current_user: UserInfo = Depends(require_admin)):
+def egress_check(current_user: UserInfo = Depends(require_operator)):
     from security.sovereignty import verify_no_egress
     return verify_no_egress()
 
 
 @router.get("/audit/export")
-def audit_export(db: Session = Depends(get_db), current_user: UserInfo = Depends(require_admin)):
+def audit_export(db: Session = Depends(get_db), current_user: UserInfo = Depends(require_operator)):
     from database.repo import export_audit_report
     return export_audit_report(db)
 
 
 @router.get("/audit/verify")
-def audit_verify(db: Session = Depends(get_db), current_user: UserInfo = Depends(require_admin)):
+def audit_verify(db: Session = Depends(get_db), current_user: UserInfo = Depends(require_operator)):
     from database.repo import verify_audit_chain
     return verify_audit_chain(db)
 

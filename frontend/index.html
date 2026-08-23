@@ -55,7 +55,7 @@
   .nav-item{
     display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);
     font-size:13px;color:var(--text-dim);margin-bottom:2px;border-left:2px solid transparent;
-    transition:background .15s, color .15s;
+    transition:background .15s, color .15s;cursor:pointer;
   }
   .nav-item svg{width:15px;height:15px;flex-shrink:0;opacity:.85;}
   .nav-item:hover{background:var(--panel);color:var(--text);}
@@ -81,7 +81,7 @@
   .user-meta{display:flex;flex-direction:column;line-height:1.25;}
   .user-name{font-size:12.5px;color:var(--text);}
   .user-role{font-size:10.5px;color:var(--text-faint);}
-  .signout{margin-left:auto;font-size:11px;color:var(--text-faint);}
+  .signout{margin-left:auto;font-size:11px;color:var(--text-faint);cursor:pointer;}
   .signout:hover{color:var(--text-dim);}
 
   /* ---------- MAIN ---------- */
@@ -98,7 +98,8 @@
     font-family:var(--mono);font-size:10.5px;letter-spacing:1px;
     background:var(--accent-wash);border:1px solid rgba(127,217,168,0.25);color:var(--accent);
   }
-  .icon-btn{width:30px;height:30px;border-radius:50%;background:var(--panel);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-dim);}
+  .icon-btn{width:30px;height:30px;border-radius:50%;background:var(--panel);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-dim);cursor:pointer;transition:all .15s;}
+  .icon-btn:hover{color:var(--text);border-color:var(--accent);}
   .icon-btn svg{width:14px;height:14px;}
 
   .content{padding:26px 28px 60px;flex:1;overflow-y:auto;}
@@ -112,12 +113,12 @@
   .page-desc{color:var(--text-dim);font-size:13.5px;margin-top:6px;}
 
   /* Panels / cards */
-  .panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);}
-  .panel-head{display:flex;align-items:center;justify-content:between;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border-soft);}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border-soft);}
   .panel-head .eyebrow{margin:0 0 3px;}
   .panel-title{font-size:14.5px;color:var(--text);font-weight:600;}
   .panel-body{padding:16px 18px;}
-  .panel-action{font-family:var(--mono);font-size:10.5px;letter-spacing:.8px;color:var(--text-dim);display:flex;align-items:center;gap:5px;}
+  .panel-action{font-family:var(--mono);font-size:10.5px;letter-spacing:.8px;color:var(--text-dim);display:flex;align-items:center;gap:5px;cursor:pointer;}
   .panel-action:hover{color:var(--accent);}
 
   .grid-2{display:grid;grid-template-columns:2.1fr 1fr;gap:18px;}
@@ -130,6 +131,7 @@
   }
   .tag.vision{border-color:rgba(227,165,63,0.35);color:var(--warn);background:var(--warn-wash);}
   .tag.muted{border-color:var(--border);color:var(--text-faint);background:transparent;}
+  .tag.danger{border-color:rgba(224,101,90,0.35);color:var(--danger);background:var(--danger-wash);}
 
   .row-item{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border-soft);}
   .row-item:last-child{border-bottom:none;}
@@ -196,7 +198,7 @@
 
   /* Tabs (Node settings) */
   .tabs{display:flex;gap:4px;background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px;width:fit-content;margin-bottom:20px;}
-  .tab-btn{padding:7px 16px;border-radius:5px;font-size:12px;color:var(--text-faint);border:none;background:transparent;font-family:var(--mono);letter-spacing:.5px;}
+  .tab-btn{padding:7px 16px;border-radius:5px;font-size:12px;color:var(--text-faint);border:none;background:transparent;font-family:var(--mono);letter-spacing:.5px;cursor:pointer;}
   .tab-btn.active{background:var(--panel);color:var(--accent);}
   .tab-panel{display:none;}
   .tab-panel.active{display:block;animation:fadein .2s ease;}
@@ -208,8 +210,7 @@
   .role-name{color:var(--text);font-weight:600;font-size:12.5px;}
   .role-desc{font-size:10.5px;color:var(--text-faint);margin-top:2px;}
 
-  .empty{text-align:center;padding:40px 20px;color:var(--text-faint);}
-  .empty svg{width:26px;height:26px;margin-bottom:10px;opacity:.5;}
+  .empty{text-align:center;padding:32px 20px;color:var(--text-faint);}
   .empty-title{font-size:13px;color:var(--text-dim);margin-bottom:4px;}
   .empty-sub{font-size:11.5px;}
 
@@ -220,14 +221,16 @@
 
   .head-actions{display:flex;align-items:center;gap:10px;}
 
-  .chain-link{width:1px;height:14px;background:var(--border);margin:0 0 0 15px;}
+  /* Messages area */
+  .chat-stream{display:flex;flex-direction:column;gap:18px;max-height:480px;overflow-y:auto;padding-right:4px;}
+  .chat-msg{display:flex;gap:12px;}
+  .chat-msg.user .avatar{background:var(--panel-2);color:var(--accent);}
+  .chat-msg.agent .avatar{background:var(--accent-wash);color:var(--accent-strong);border-color:var(--accent);}
+  .chat-body{flex:1;min-width:0;}
+  .chat-meta{font-size:11px;color:var(--text-faint);margin-bottom:5px;font-family:var(--mono);}
+  .chat-text{font-size:13.5px;line-height:1.6;color:var(--text);white-space:pre-wrap;word-break:break-word;}
 
-  @media (max-width: 980px){
-    .sidebar{display:none;}
-    .grid-2{grid-template-columns:1fr;}
-    .grid-3-workspace{grid-template-columns:1fr;}
-    .role-grid{grid-template-columns:100px repeat(5,minmax(60px,1fr));font-size:10px;}
-  }
+  .file-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:5px;background:var(--panel-2);border:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:8px;}
 
   /* ================= LOGIN ================= */
   #login{
@@ -289,6 +292,10 @@
   .login-note svg{width:14px;height:14px;color:#8a8372;flex-shrink:0;}
   .login-help{font-size:11.5px;color:#a39c88;margin-top:60px;}
   .login-help a{text-decoration:underline;}
+
+  /* Spinner */
+  .spinner{width:14px;height:14px;border:2px solid var(--accent-wash-2);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;display:inline-block;}
+  @keyframes spin{to{transform:rotate(360deg);}}
 
   @media (max-width: 900px){
     #login{flex-direction:column;overflow-y:auto;}
@@ -362,11 +369,11 @@
       </div>
       <div class="nav-item" data-page="knowledge">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-        Knowledge library <span class="nav-count">12</span>
+        Knowledge library <span class="nav-count" id="sidebar-doc-count">0</span>
       </div>
       <div class="nav-item" data-page="artifacts">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-        Artifacts <span class="nav-count">3</span>
+        Artifacts <span class="nav-count" id="sidebar-art-count">0</span>
       </div>
     </div>
 
@@ -390,16 +397,16 @@
         <span class="verified-pill">VERIFIED</span>
       </div>
       <div class="node-id">edgemind-node-01</div>
-      <div class="node-note">All systems operational</div>
+      <div class="node-note">Air-gapped execution ready</div>
     </div>
 
     <div class="user-row">
-      <div class="avatar">AR</div>
+      <div class="avatar" id="current-user-avatar">OP</div>
       <div class="user-meta">
-        <div class="user-name">Alex Rivera</div>
-        <div class="user-role">Administrator</div>
+        <div class="user-name" id="current-user-name">Operator</div>
+        <div class="user-role" id="current-user-role">Role: operator</div>
       </div>
-      <a class="signout">Sign out</a>
+      <a class="signout" id="signout-btn">Sign out</a>
     </div>
   </aside>
 
@@ -409,7 +416,7 @@
       <div class="breadcrumb">EDGEMIND / <b id="crumb">AGENT WORKSPACE</b></div>
       <div class="topbar-right">
         <div class="pill"><span class="dot"></span>SOVEREIGN NODE ONLINE</div>
-        <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h4l2 8 4-16 2 8h6"/></svg></div>
+        <div class="icon-btn" title="Refresh data" id="refresh-all-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg></div>
       </div>
     </div>
 
@@ -418,9 +425,9 @@
       <!-- ============ PAGE: AGENT WORKSPACE ============ -->
       <section class="page active" id="page-workspace">
         <div class="page-head">
-          <div class="eyebrow">TUESDAY / 14 MAY 2024</div>
-          <div class="page-title">Good morning, Alex.</div>
-          <div class="page-desc">Your local agent is ready. What should we work through?</div>
+          <div class="eyebrow" id="today-date-label">SOVEREIGN WORKSPACE</div>
+          <div class="page-title" id="welcome-title">Agent Workbench</div>
+          <div class="page-desc">Reasoning, multimodality &amp; artifact generation — 100% on-premise.</div>
         </div>
 
         <div class="grid-2">
@@ -429,100 +436,66 @@
             <div class="panel">
               <div class="panel-head">
                 <div>
-                  <div class="eyebrow">CURRENT TASK / #EM-0248</div>
-                  <div class="panel-title">Inspection report review</div>
+                  <div class="eyebrow" id="task-id-badge">SESSION / ACTIVE</div>
+                  <div class="panel-title" id="task-status-title">Agent Execution Stream</div>
                 </div>
-                <span class="tag">IN PROGRESS</span>
+                <span class="tag" id="task-status-badge">READY</span>
               </div>
               <div class="panel-body">
-                <div style="display:flex;gap:10px;margin-bottom:14px;">
-                  <div class="avatar">AR</div>
-                  <div>
-                    <div style="font-size:11px;color:var(--text-faint);margin-bottom:4px;">YOU · 09:40</div>
-                    <div style="font-size:13.5px;color:var(--text-dim);line-height:1.5;">Review the scanned inspection report against the valve pressure limits in the SOP, then draft an approval note.</div>
-                  </div>
-                </div>
-                <div style="display:flex;gap:10px;">
-                  <div style="width:2px;background:var(--accent-wash-2);border-radius:2px;"></div>
-                  <div style="flex:1;">
-                    <div style="font-family:var(--mono);font-size:10px;letter-spacing:.5px;color:var(--text-faint);margin-bottom:6px;">EDGEMIND · 09:41 &nbsp; MISTRAL-7B / LOCAL</div>
-                    <div style="font-size:13.5px;line-height:1.6;color:var(--text);">
-                      I found one finding that needs attention. Valve V-204 is recorded at <b style="color:var(--warn);">18.4 bar</b>, above the SOP limit of <b style="color:var(--warn);">16 bar</b>. I'm preparing a flagged approval note with the relevant evidence attached.
-                    </div>
-                    <div class="flag-box">
-                      <div style="display:flex;align-items:center;gap:10px;">
-                        <span class="flag-dot"></span>
-                        <div>
-                          <div class="flag-title">Threshold exceeded</div>
-                          <div class="flag-sub">V-204 · +2.4 bar over limit · high confidence</div>
-                        </div>
-                      </div>
-                      <span class="link-arrow">Inspect ↗</span>
-                    </div>
+                <div class="chat-stream" id="chat-messages">
+                  <div class="empty" id="chat-empty-state">
+                    <div class="empty-title">Ready for instructions</div>
+                    <div class="empty-sub">Type a task below or attach a scanned report/drawing to begin analysis.</div>
                   </div>
                 </div>
               </div>
-              <div class="foot-note" style="border-top:1px solid var(--border-soft);">
-                <span style="color:var(--text-faint);">📎</span>
-                <span style="flex:1;">Ask EdgeMind to continue this task…</span>
-                <span style="color:var(--accent);">➤</span>
+              <!-- INPUT FOOTER -->
+              <div style="border-top:1px solid var(--border-soft);padding:14px 18px;background:var(--panel-2);">
+                <div id="upload-indicator-box" style="display:none;margin-bottom:10px;">
+                  <div class="file-badge">
+                    <span>📎</span>
+                    <span id="attached-filename">file.pdf</span>
+                    <span id="remove-file-btn" style="cursor:pointer;margin-left:6px;color:var(--text-faint);">✕</span>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <input type="file" id="agent-file" style="display:none;" accept="image/*,application/pdf" />
+                  <button id="agent-upload-btn" class="icon-btn" title="Attach Document / Image / PDF" style="flex-shrink:0;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                  </button>
+                  <input id="agent-prompt" placeholder="Ask EdgeMind to analyze documents, extract tables, draft notes..." style="flex:1;background:transparent;border:none;outline:none;color:var(--text);font-size:13.5px;font-family:var(--sans);" />
+                  <button id="agent-submit" class="btn primary" style="flex-shrink:0;">
+                    <span id="btn-text">Execute</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                  </button>
+                </div>
               </div>
             </div>
 
             <div class="grid-3-workspace" style="margin-top:0;">
+              <!-- Evidence Panel -->
               <div class="panel">
                 <div class="panel-head">
                   <div>
                     <div class="eyebrow">EVIDENCE / RAG + VISION</div>
-                    <div class="panel-title">Source citations <span style="color:var(--text-faint);font-weight:400;">4</span></div>
+                    <div class="panel-title">Source citations <span style="color:var(--text-faint);font-weight:400;" id="evidence-count">0</span></div>
                   </div>
-                  <span class="panel-action">+ Add source</span>
                 </div>
-                <div class="panel-body" style="padding-top:6px;">
-                  <div class="row-item">
-                    <div class="row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div>
-                    <div class="row-main">
-                      <div class="row-title">SOP-VALVE-042</div>
-                      <div class="row-sub">Pressure limits &amp; inspection</div>
-                    </div>
-                    <div class="row-right"><span class="tag">RAG</span><span class="link-arrow">p.14 · 98%↗</span></div>
-                  </div>
-                  <div class="row-item">
-                    <div class="row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div>
-                    <div class="row-main">
-                      <div class="row-title">INSPECT-2024-118</div>
-                      <div class="row-sub">Scanned inspection report</div>
-                    </div>
-                    <div class="row-right"><span class="tag vision">VISION</span><span class="link-arrow">p.03 · OCR 94%↗</span></div>
-                  </div>
-                  <div class="row-item">
-                    <div class="row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div>
-                    <div class="row-main">
-                      <div class="row-title">P&amp;ID-UNIT-07</div>
-                      <div class="row-sub">Unit 07 process drawing</div>
-                    </div>
-                    <div class="row-right"><span class="tag vision">VISION</span><span class="link-arrow">sheet A-02↗</span></div>
-                  </div>
+                <div class="panel-body" style="padding-top:6px;" id="evidence-list">
+                  <div class="empty" style="padding:20px 0;"><div class="empty-sub">No citations retrieved yet</div></div>
                 </div>
               </div>
 
+              <!-- Deliverables Panel -->
               <div class="panel">
                 <div class="panel-head">
                   <div>
                     <div class="eyebrow">DELIVERABLES</div>
-                    <div class="panel-title">Artifacts <span style="color:var(--text-faint);font-weight:400;">1</span></div>
+                    <div class="panel-title">Generated Artifacts <span style="color:var(--text-faint);font-weight:400;" id="workspace-artifact-count">0</span></div>
                   </div>
-                  <span class="panel-action">View all</span>
                 </div>
-                <div class="panel-body" style="padding-top:12px;">
-                  <div class="row-item" style="border:none;">
-                    <div class="row-icon" style="color:var(--warn);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
-                    <div class="row-main">
-                      <div class="row-title">inspection-approval-note.docx</div>
-                      <div class="row-sub">DOCX · 248 KB · hash verified</div>
-                    </div>
-                    <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg></div>
-                  </div>
+                <div class="panel-body" style="padding-top:6px;" id="workspace-artifacts-list">
+                  <div class="empty" style="padding:20px 0;"><div class="empty-sub">No artifacts produced yet</div></div>
                 </div>
               </div>
             </div>
@@ -536,11 +509,10 @@
                   <div class="eyebrow">LIVE EXECUTION</div>
                   <div class="panel-title">Agent trace</div>
                 </div>
-                <span class="pill" style="padding:3px 9px;">LIVE</span>
+                <span class="pill" id="trace-pill" style="padding:3px 9px;">IDLE</span>
               </div>
-              <div class="panel-body" id="trace-list"></div>
-              <div class="foot-note" style="border-top:none;padding-top:0;">
-                <span class="panel-action">View full trace ↗</span>
+              <div class="panel-body" id="trace-list">
+                <div class="empty" style="padding:20px 0;"><div class="empty-sub">Awaiting task submission</div></div>
               </div>
             </div>
 
@@ -562,16 +534,16 @@
                     <div class="metric-ring-label">100<span>%</span></div>
                   </div>
                   <div>
-                    <div style="font-size:13px;color:var(--text);font-weight:600;">No egress detected</div>
-                    <div style="font-size:11px;color:var(--text-faint);">Last verified just now</div>
+                    <div style="font-size:13px;color:var(--text);font-weight:600;" id="egress-status-text">No egress detected</div>
+                    <div style="font-size:11px;color:var(--text-faint);">100% on-premise execution</div>
                   </div>
                 </div>
-                <div class="meter-row"><span style="width:56px;">CPU/RAM</span><div class="bar green"><div style="width:42%;"></div></div><span class="meter-val">42%</span></div>
-                <div class="meter-row"><span style="width:56px;">VRAM</span><div class="bar amber"><div style="width:68%;"></div></div><span class="meter-val">68%</span></div>
+                <div class="meter-row"><span style="width:56px;">CPU</span><div class="bar green"><div style="width:35%;"></div></div><span class="meter-val">Local</span></div>
+                <div class="meter-row"><span style="width:56px;">INFERENCE</span><div class="bar green"><div style="width:100%;"></div></div><span class="meter-val">Ollama</span></div>
               </div>
               <div class="foot-note">
-                <span><span class="dot"></span> Firewall enforced</span>
-                <span><span class="dot"></span> Model verified</span>
+                <span><span class="dot"></span> Air-gap verified</span>
+                <span><span class="dot"></span> AES-256 Storage</span>
               </div>
             </div>
 
@@ -581,13 +553,13 @@
                   <div class="eyebrow">VALIDATION ENGINE</div>
                   <div class="panel-title">Grounding report</div>
                 </div>
-                <span class="tag">96% SCORE</span>
+                <span class="tag" id="grounding-score-badge">— SCORE</span>
               </div>
-              <div class="panel-body">
-                <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Schema check <span class="check">✓ pass</span></div></div>
-                <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Calculation re-check <span class="check">✓ pass</span></div></div>
-                <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Citation grounding <span class="check">✓ pass</span></div></div>
-                <div class="row-item" style="border-bottom:none;"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Retry count <span style="color:var(--text-faint);">0 / 3</span></div></div>
+              <div class="panel-body" id="grounding-details">
+                <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Schema check <span class="check" id="val-schema">✓ pass</span></div></div>
+                <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Grounding validation <span class="check" id="val-grounding">✓ verified</span></div></div>
+                <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Hallucination risk <span class="check" id="val-risk">Low</span></div></div>
+                <div class="row-item" style="border-bottom:none;"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Replanning retries <span style="color:var(--text-faint);" id="val-retries">0 / 3</span></div></div>
               </div>
             </div>
           </div>
@@ -598,30 +570,40 @@
       <section class="page" id="page-knowledge">
         <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-end;">
           <div>
-            <div class="eyebrow">RAG INDEX / 12 DOCUMENTS</div>
+            <div class="eyebrow" id="doc-count-eyebrow">RAG INDEX / 0 DOCUMENTS</div>
             <div class="page-title">Knowledge library</div>
-            <div class="page-desc">SOPs, inspection reports, and drawings indexed for retrieval — every version tracked, nothing leaves this node.</div>
+            <div class="page-desc">SOPs, inspection reports, and drawings indexed in Qdrant for semantic search and grounded tool actions.</div>
           </div>
           <div class="head-actions">
-            <div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Search documents…"/></div>
-            <button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>Upload</button>
+            <div class="search-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input id="knowledge-search" placeholder="Filter documents…"/>
+            </div>
+            <input type="file" id="knowledge-file-input" style="display:none;" />
+            <button class="btn primary" id="knowledge-upload-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>Upload SOP / PDF
+            </button>
           </div>
         </div>
 
         <div class="panel">
-          <div class="panel-body" id="knowledge-list" style="padding-top:6px;"></div>
+          <div class="panel-body" id="knowledge-list" style="padding-top:6px;">
+            <div class="empty"><div class="empty-title">Loading documents...</div></div>
+          </div>
         </div>
       </section>
 
       <!-- ============ PAGE: ARTIFACTS ============ -->
       <section class="page" id="page-artifacts">
         <div class="page-head">
-          <div class="eyebrow">DELIVERABLES / 3 ARTIFACTS</div>
+          <div class="eyebrow" id="artifact-count-eyebrow">DELIVERABLES / 0 ARTIFACTS</div>
           <div class="page-title">Artifacts</div>
-          <div class="page-desc">Generated files with hash-stamped integrity, ready for download or review.</div>
+          <div class="page-desc">Cryptographically hash-stamped deliverables (DOCX, XLSX, PDF) ready for direct download.</div>
         </div>
         <div class="panel">
-          <div class="panel-body" id="artifacts-list" style="padding-top:6px;"></div>
+          <div class="panel-body" id="artifacts-list" style="padding-top:6px;">
+            <div class="empty"><div class="empty-title">Loading artifacts...</div></div>
+          </div>
         </div>
       </section>
 
@@ -631,14 +613,16 @@
           <div>
             <div class="eyebrow">HASH-CHAINED LOG</div>
             <div class="page-title">Audit trail</div>
-            <div class="page-desc">Every model call, tool call, file access, and approval — chained and verifiable.</div>
+            <div class="page-desc">Every model call, tool execution, and document upload — cryptographically linked with SHA-256 hashes.</div>
           </div>
-          <span class="tag">CHAIN VERIFIED</span>
+          <span class="tag" id="chain-status-tag">CHAIN VERIFIED</span>
         </div>
         <div class="panel">
           <table class="table" id="audit-table">
-            <thead><tr><th>TIME</th><th>ACTOR</th><th>EVENT</th><th>DETAIL</th><th>HASH</th><th></th></tr></thead>
-            <tbody id="audit-body"></tbody>
+            <thead><tr><th>TIME</th><th>ACTOR</th><th>EVENT</th><th>DETAIL</th><th>HASH</th><th>STATUS</th></tr></thead>
+            <tbody id="audit-body">
+              <tr><td colspan="6" style="text-align:center;color:var(--text-faint);">Loading audit trail...</td></tr>
+            </tbody>
           </table>
         </div>
       </section>
@@ -648,7 +632,7 @@
         <div class="page-head">
           <div class="eyebrow">SYSTEM CONFIGURATION</div>
           <div class="page-title">Node settings</div>
-          <div class="page-desc">Model registry, access control, and sovereignty enforcement for edgemind-node-01.</div>
+          <div class="page-desc">Local Ollama models, Role-Based Access Control matrix, and air-gap verification.</div>
         </div>
 
         <div class="tabs">
@@ -660,8 +644,12 @@
         <div class="tab-panel active" id="tab-registry">
           <div class="panel">
             <table class="table">
-              <thead><tr><th>MODEL</th><th>MODALITY</th><th>VRAM</th><th>QUANT</th><th>STATUS</th><th>HASH</th></tr></thead>
-              <tbody id="registry-body"></tbody>
+              <thead><tr><th>MODEL</th><th>MODALITY</th><th>ROLE</th><th>QUANT</th><th>STATUS</th><th>INTEGRITY</th></tr></thead>
+              <tbody id="registry-body">
+                <tr><td class="col-strong mono">qwen2.5:1.5b</td><td>Reasoning</td><td class="mono">General / RAG</td><td class="mono">Q4_K_M</td><td><span class="status-dot-row"><span class="dot"></span>active</span></td><td class="check">✓ verified</td></tr>
+                <tr><td class="col-strong mono">qwen2.5-coder:1.5b</td><td>Coding / Structuring</td><td class="mono">Artifact Generation</td><td class="mono">Q4_K_M</td><td><span class="status-dot-row"><span class="dot"></span>active</span></td><td class="check">✓ verified</td></tr>
+                <tr><td class="col-strong mono">llava</td><td>Vision &amp; Multimodal</td><td class="mono">OCR / Diagram Parser</td><td class="mono">FP16 / 4.7GB</td><td><span class="status-dot-row"><span class="dot"></span>active</span></td><td class="check">✓ verified</td></tr>
+              </tbody>
             </table>
           </div>
         </div>
@@ -670,8 +658,13 @@
           <div class="panel">
             <div class="panel-body">
               <div class="role-grid">
-                <div class="rh"></div><div class="rh" style="text-align:center;">VIEW</div><div class="rh" style="text-align:center;">EXECUTE TOOLS</div><div class="rh" style="text-align:center;">GENERATE ARTIFACTS</div><div class="rh" style="text-align:center;">APPROVE</div><div class="rh" style="text-align:center;">ADMIN</div>
-                <div id="rbac-rows"></div>
+                <div class="rh">ROLE</div><div class="rh" style="text-align:center;">VIEW</div><div class="rh" style="text-align:center;">EXECUTE AGENT</div><div class="rh" style="text-align:center;">GENERATE ARTIFACTS</div><div class="rh" style="text-align:center;">APPROVE</div><div class="rh" style="text-align:center;">ADMIN</div>
+                <div class="rc"><div><div class="role-name">Admin</div><div class="role-desc">Full system authority</div></div></div>
+                <div class="rc center"><span class="check">✓</span></div><div class="rc center"><span class="check">✓</span></div><div class="rc center"><span class="check">✓</span></div><div class="rc center"><span class="check">✓</span></div><div class="rc center"><span class="check">✓</span></div>
+                <div class="rc"><div><div class="role-name">Operator</div><div class="role-desc">Execute tasks, RAG, &amp; artifacts</div></div></div>
+                <div class="rc center"><span class="check">✓</span></div><div class="rc center"><span class="check">✓</span></div><div class="rc center"><span class="check">✓</span></div><div class="rc center"><span class="check">✓</span></div><div class="rc center"><span class="cross">–</span></div>
+                <div class="rc"><div><div class="role-name">Viewer</div><div class="role-desc">Read-only audit &amp; artifact access</div></div></div>
+                <div class="rc center"><span class="check">✓</span></div><div class="rc center"><span class="cross">–</span></div><div class="rc center"><span class="cross">–</span></div><div class="rc center"><span class="cross">–</span></div><div class="rc center"><span class="cross">–</span></div>
               </div>
             </div>
           </div>
@@ -681,24 +674,30 @@
           <div class="grid-2">
             <div class="stack">
               <div class="panel">
-                <div class="panel-head"><div><div class="eyebrow">NETWORK</div><div class="panel-title">Egress firewall</div></div><span class="tag">DEFAULT-DENY</span></div>
+                <div class="panel-head"><div><div class="eyebrow">NETWORK</div><div class="panel-title">Egress firewall</div></div><span class="tag">AIR-GAPPED</span></div>
                 <div class="panel-body">
-                  <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">iptables default-deny egress <span class="check">✓ enforced</span></div></div>
-                  <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Live packet monitor (tcpdump) <span class="check">✓ running</span></div></div>
-                  <div class="row-item" style="border-bottom:none;"><div class="row-main row-title" style="display:flex;justify-content:space-between;">External requests (24h) <span style="color:var(--text-dim);">0 blocked / 0 attempted</span></div></div>
+                  <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Default-deny egress filter <span class="check">✓ active</span></div></div>
+                  <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Outbound socket monitoring <span class="check">✓ 0 egress</span></div></div>
+                  <div class="row-item" style="border-bottom:none;"><div class="row-main row-title" style="display:flex;justify-content:space-between;">External cloud calls <span style="color:var(--accent);">0 detected</span></div></div>
                 </div>
               </div>
               <div class="panel">
                 <div class="panel-head"><div><div class="eyebrow">STORAGE</div><div class="panel-title">Encryption at rest</div></div></div>
                 <div class="panel-body">
-                  <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Documents &amp; artifacts (MinIO) <span class="check">✓ AES-256</span></div></div>
-                  <div class="row-item" style="border-bottom:none;"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Key storage <span style="color:var(--text-dim);">local, node-bound</span></div></div>
+                  <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Postgres + MinIO artifacts <span class="check">✓ AES-256</span></div></div>
+                  <div class="row-item" style="border-bottom:none;"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Master key storage <span style="color:var(--text-dim);">local, air-gapped</span></div></div>
                 </div>
               </div>
             </div>
             <div class="panel">
-              <div class="panel-head"><div><div class="eyebrow">MODEL INTEGRITY</div><div class="panel-title">Signed manifest checks</div></div></div>
-              <div class="panel-body" id="model-hash-list"></div>
+              <div class="panel-head"><div><div class="eyebrow">LOCAL INFRASTRUCTURE</div><div class="panel-title">Container health</div></div></div>
+              <div class="panel-body">
+                <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">edgemind-backend <span class="check">✓ healthy</span></div></div>
+                <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">edgemind-postgres <span class="check">✓ healthy</span></div></div>
+                <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">edgemind-qdrant <span class="check">✓ healthy</span></div></div>
+                <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">edgemind-ollama <span class="check">✓ healthy</span></div></div>
+                <div class="row-item" style="border-bottom:none;"><div class="row-main row-title" style="display:flex;justify-content:space-between;">edgemind-minio <span class="check">✓ healthy</span></div></div>
+              </div>
             </div>
           </div>
         </div>
