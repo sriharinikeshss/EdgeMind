@@ -63,7 +63,7 @@ services:
       - MINIO_URL=http://minio:9000
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_REASONING_MODEL=qwen2.5:1.5b
-      - OLLAMA_CODING_MODEL=qwen2.5-coder:1.5b
+      - OLLAMA_CODING_MODEL=qwen2.5-coder:7b
       - OLLAMA_VISION_MODEL=llava
       - JWT_SECRET_KEY=kavach-dev-secret-change-in-production
     depends_on:

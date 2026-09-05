@@ -56,6 +56,7 @@ class AgentResponse(BaseModel):
     grounding_score: float = 1.0
     validation_report: dict | None = None
     retry_count: int = 0
+    artifacts: list[dict] = []
 
 
 from api.auth import get_current_user, UserInfo
@@ -224,11 +225,15 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
                  if r.tool in ("analyze_scanned_document", "analyze_engineering_drawing") and r.tool_data),
                 None,
             )
-            # Claims come from the answer itself (the last successful step, typically
-            # a direct_llm/generate_* step) — NOT the full final_output concatenation,
-            # which would otherwise include the rag_search step's own citation text
-            # as a "claim" that trivially scores against itself and inflates grounding.
-            answer_text = next((r.output or "" for r in reversed(step_results) if r.success), final_output)
+            # Claims come from the actual textual reasoning/summary step (skipping artifact
+            # JSON receipts like {"status": "ok", "id": ...}) — so grounding is scored
+            # on the synthesized analysis against the source-of-truth.
+            from tools.registry import ARTIFACT_TOOL_NAMES
+            non_artifact_outputs = [
+                r.output for r in reversed(step_results)
+                if r.success and r.tool not in ARTIFACT_TOOL_NAMES and r.output
+            ]
+            answer_text = non_artifact_outputs[0] if non_artifact_outputs else final_output
             claims = validator.extract_claims(answer_text)
             if rag_text:
                 grounding_score = validator.calculate_grounding_score(claims, rag_text)
@@ -293,6 +298,20 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
         task.retry_count = retry_count
         db.commit()
 
+        # Query any artifacts generated in this task
+        from database.models import Artifact
+        task_artifacts = db.query(Artifact).filter(Artifact.task_id == task_id).all()
+        artifacts_list = [
+            {
+                "id": a.id,
+                "filename": a.filename,
+                "file_hash": a.file_hash,
+                "content_type": a.content_type,
+                "created_at": str(a.created_at),
+            }
+            for a in task_artifacts
+        ]
+
         return AgentResponse(
             task_id=task_id,
             status=sm.status.value,
@@ -303,6 +322,7 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
             grounding_score=grounding_score,
             validation_report=validation_report,
             retry_count=retry_count,
+            artifacts=artifacts_list,
         )
 
     except Exception as exc:
