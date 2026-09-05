@@ -4,701 +4,1406 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>EdgeMind — Sovereign Agentic Workbench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --bg:#0a0e0c;
-    --bg-alt:#0d1210;
-    --panel:#111713;
-    --panel-2:#0e1310;
-    --border:#212822;
-    --border-soft:#1a201c;
-    --text:#eaeee9;
-    --text-dim:#8b958c;
-    --text-faint:#586058;
-    --accent:#7fd9a8;
-    --accent-strong:#a8ecc4;
-    --accent-wash:rgba(127,217,168,0.08);
-    --accent-wash-2:rgba(127,217,168,0.14);
-    --warn:#e3a53f;
-    --warn-wash:rgba(227,165,63,0.10);
-    --danger:#e0655a;
-    --danger-wash:rgba(224,101,90,0.10);
-    --radius:10px;
-    --radius-sm:6px;
-    --mono: ui-monospace, 'SF Mono', 'IBM Plex Mono', Menlo, Consolas, monospace;
-    --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
-    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Helvetica, Arial, sans-serif;
+  :root {
+    /* Ultra-sleek Titanium/Obsidian monochrome theme */
+    --bg: #09090b;
+    --bg-subtle: #0f0f12;
+    --panel: #141417;
+    --panel-hover: #1a1a1d;
+    --panel-elevated: #1e1e22;
+    
+    --border: #27272a;
+    --border-subtle: #1f1f23;
+    --border-active: #3f3f46;
+    
+    --text-primary: #f4f4f5;
+    --text-secondary: #a1a1aa;
+    --text-muted: #71717a;
+    --text-faint: #52525b;
+
+    /* Subtle Accent (Titanium / Slate instead of Blue/Green) */
+    --accent: #e4e4e7;
+    --accent-hover: #ffffff;
+    --accent-subtle: rgba(228, 228, 231, 0.08);
+    --accent-border: rgba(228, 228, 231, 0.2);
+
+    /* Muted Status Colors */
+    --success: #d4d4d8; /* Silver instead of Green */
+    --success-subtle: rgba(212, 212, 216, 0.1);
+    --success-border: rgba(212, 212, 216, 0.25);
+
+    --warning: #a1a1aa; /* Slate instead of Amber */
+    --warning-subtle: rgba(161, 161, 170, 0.1);
+    --warning-border: rgba(161, 161, 170, 0.25);
+
+    --danger: #71717a; /* Dark Zinc instead of Red */
+    --danger-subtle: rgba(113, 113, 122, 0.1);
+    --danger-border: rgba(113, 113, 122, 0.25);
+
+    --radius-sm: 6px;
+    --radius: 10px;
+    --radius-lg: 14px;
+    --radius-full: 9999px;
+
+    --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.6);
+    --shadow-lg: 0 12px 32px rgba(0,0,0,0.8);
   }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);height:100%;}
-  ::selection{background:var(--accent-wash-2);color:var(--accent-strong);}
-  a{color:inherit;text-decoration:none;}
-  button{font-family:inherit;cursor:pointer;}
 
-  .app{display:flex;min-height:100vh;}
-
-  /* ---------- SIDEBAR ---------- */
-  .sidebar{
-    width:250px;flex-shrink:0;background:var(--bg-alt);
-    border-right:1px solid var(--border-soft);
-    display:flex;flex-direction:column;
-    padding:22px 16px;
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
   }
-  .brand{display:flex;align-items:center;gap:9px;padding:2px 6px 22px;}
-  .brand-mark{color:var(--accent);font-size:18px;line-height:1;}
-  .brand-text{display:flex;flex-direction:column;}
-  .brand-title{font-family:var(--mono);font-weight:600;letter-spacing:2.5px;font-size:13px;color:var(--text);}
-  .brand-sub{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--text-faint);margin-top:2px;}
 
-  .nav-group{margin-bottom:22px;}
-  .nav-label{font-family:var(--mono);font-size:9.5px;letter-spacing:1.8px;color:var(--text-faint);padding:0 10px;margin-bottom:8px;}
-  .nav-item{
-    display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);
-    font-size:13px;color:var(--text-dim);margin-bottom:2px;border-left:2px solid transparent;
-    transition:background .15s, color .15s;cursor:pointer;
+  ::selection { background: rgba(228, 228, 231, 0.2); color: #fff; }
+  a { color: inherit; text-decoration: none; }
+  button, input, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+  button { cursor: pointer; border: none; background: transparent; }
+
+  /* App Shell Layout */
+  .app-layout {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    background: var(--bg);
   }
-  .nav-item svg{width:15px;height:15px;flex-shrink:0;opacity:.85;}
-  .nav-item:hover{background:var(--panel);color:var(--text);}
-  .nav-item.active{background:var(--accent-wash);color:var(--accent-strong);border-left:2px solid var(--accent);}
-  .nav-count{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text-faint);background:var(--panel);padding:1px 6px;border-radius:8px;}
-  .nav-item.active .nav-count{color:var(--accent);}
 
-  .sidebar-spacer{flex:1;}
-
-  .node-card{
-    background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
-    padding:12px;margin-bottom:12px;
+  /* Sidebar */
+  .sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background: var(--bg-subtle);
+    border-right: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    user-select: none;
+    z-index: 20;
   }
-  .node-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
-  .node-status{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9.5px;letter-spacing:1px;color:var(--text-dim);}
-  .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);}
-  .verified-pill{font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--accent);}
-  .node-id{font-family:var(--mono);font-size:12.5px;color:var(--text);margin-bottom:2px;}
-  .node-note{font-size:11px;color:var(--text-faint);}
 
-  .user-row{display:flex;align-items:center;gap:9px;padding:6px 4px;}
-  .avatar{width:28px;height:28px;border-radius:50%;background:var(--panel);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10.5px;color:var(--accent);flex-shrink:0;}
-  .user-meta{display:flex;flex-direction:column;line-height:1.25;}
-  .user-name{font-size:12.5px;color:var(--text);}
-  .user-role{font-size:10.5px;color:var(--text-faint);}
-  .signout{margin-left:auto;font-size:11px;color:var(--text-faint);cursor:pointer;}
-  .signout:hover{color:var(--text-dim);}
-
-  /* ---------- MAIN ---------- */
-  .main{flex:1;min-width:0;display:flex;flex-direction:column;}
-  .topbar{
-    display:flex;align-items:center;justify-content:space-between;
-    padding:16px 28px;border-bottom:1px solid var(--border-soft);
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 6px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: 16px;
   }
-  .breadcrumb{font-family:var(--mono);font-size:11px;letter-spacing:1.2px;color:var(--text-faint);}
-  .breadcrumb b{color:var(--text-dim);font-weight:600;}
-  .topbar-right{display:flex;align-items:center;gap:16px;}
-  .pill{
-    display:flex;align-items:center;gap:7px;padding:5px 11px;border-radius:20px;
-    font-family:var(--mono);font-size:10.5px;letter-spacing:1px;
-    background:var(--accent-wash);border:1px solid rgba(127,217,168,0.25);color:var(--accent);
+  .brand-logo {
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, #3f3f46 0%, #18181b 100%);
+    border: 1px solid var(--border-active);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    box-shadow: 0 0 16px rgba(63, 63, 70, 0.4);
   }
-  .icon-btn{width:30px;height:30px;border-radius:50%;background:var(--panel);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-dim);cursor:pointer;transition:all .15s;}
-  .icon-btn:hover{color:var(--text);border-color:var(--accent);}
-  .icon-btn svg{width:14px;height:14px;}
-
-  .content{padding:26px 28px 60px;flex:1;overflow-y:auto;}
-  .page{display:none;}
-  .page.active{display:block;animation:fadein .25s ease;}
-  @keyframes fadein{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
-
-  .page-head{margin-bottom:22px;}
-  .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--text-faint);margin-bottom:6px;}
-  .page-title{font-family:var(--serif);font-size:30px;color:var(--text);font-weight:400;}
-  .page-desc{color:var(--text-dim);font-size:13.5px;margin-top:6px;}
-
-  /* Panels / cards */
-  .panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
-  .panel-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border-soft);}
-  .panel-head .eyebrow{margin:0 0 3px;}
-  .panel-title{font-size:14.5px;color:var(--text);font-weight:600;}
-  .panel-body{padding:16px 18px;}
-  .panel-action{font-family:var(--mono);font-size:10.5px;letter-spacing:.8px;color:var(--text-dim);display:flex;align-items:center;gap:5px;cursor:pointer;}
-  .panel-action:hover{color:var(--accent);}
-
-  .grid-2{display:grid;grid-template-columns:2.1fr 1fr;gap:18px;}
-  .grid-3-workspace{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px;}
-  .stack{display:flex;flex-direction:column;gap:18px;}
-
-  .tag{
-    font-family:var(--mono);font-size:9.5px;letter-spacing:.8px;padding:2px 7px;border-radius:4px;
-    border:1px solid rgba(127,217,168,0.3);color:var(--accent);background:var(--accent-wash);
+  .brand-info { display: flex; flex-direction: column; }
+  .brand-title {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    color: var(--text-primary);
   }
-  .tag.vision{border-color:rgba(227,165,63,0.35);color:var(--warn);background:var(--warn-wash);}
-  .tag.muted{border-color:var(--border);color:var(--text-faint);background:transparent;}
-  .tag.danger{border-color:rgba(224,101,90,0.35);color:var(--danger);background:var(--danger-wash);}
-
-  .row-item{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border-soft);}
-  .row-item:last-child{border-bottom:none;}
-  .row-icon{width:32px;height:32px;border-radius:7px;background:var(--panel-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--text-dim);}
-  .row-icon svg{width:15px;height:15px;}
-  .row-main{min-width:0;flex:1;}
-  .row-title{font-size:13px;color:var(--text);}
-  .row-sub{font-size:11px;color:var(--text-faint);margin-top:2px;}
-  .row-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
-  .link-arrow{color:var(--text-faint);font-size:11px;}
-
-  .btn{
-    display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:var(--radius-sm);
-    font-size:12.5px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);
+  .brand-subtitle {
+    font-size: 10.5px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
   }
-  .btn:hover{color:var(--text);border-color:#2c352f;}
-  .btn.primary{background:var(--accent-wash);border-color:rgba(127,217,168,0.3);color:var(--accent);}
-  .btn.primary:hover{background:var(--accent-wash-2);}
-  .btn svg{width:13px;height:13px;}
-  .btn-sm{padding:5px 9px;font-size:11px;}
 
-  .table{width:100%;border-collapse:collapse;}
-  .table th{
-    text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:1px;color:var(--text-faint);
-    padding:0 12px 10px;font-weight:500;border-bottom:1px solid var(--border-soft);
+  /* Nav Navigation */
+  .nav-section { margin-bottom: 20px; }
+  .nav-header {
+    font-size: 10.5px;
+    font-family: var(--font-mono);
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 0 10px;
+    margin-bottom: 6px;
   }
-  .table td{padding:12px;font-size:12.5px;color:var(--text-dim);border-bottom:1px solid var(--border-soft);}
-  .table tr:last-child td{border-bottom:none;}
-  .table tr:hover td{background:var(--panel-2);}
-  .mono{font-family:var(--mono);}
-  .col-strong{color:var(--text);}
-
-  .status-dot-row{display:flex;align-items:center;gap:6px;}
-  .status-dot-row .dot{width:5px;height:5px;}
-  .status-dot-row.warn .dot{background:var(--warn);box-shadow:0 0 5px var(--warn);}
-  .status-dot-row.idle .dot{background:var(--text-faint);box-shadow:none;}
-
-  .check{color:var(--accent);}
-  .cross{color:var(--text-faint);}
-
-  .metric-ring{position:relative;width:64px;height:64px;flex-shrink:0;}
-  .metric-ring svg{transform:rotate(-90deg);}
-  .metric-ring-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px;color:var(--accent);}
-  .metric-ring-label span{font-size:8px;color:var(--text-faint);}
-
-  .bar{height:5px;border-radius:4px;background:var(--panel-2);overflow:hidden;flex:1;}
-  .bar > div{height:100%;border-radius:4px;}
-  .bar.green > div{background:var(--accent);}
-  .bar.amber > div{background:var(--warn);}
-  .meter-row{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:10.5px;color:var(--text-faint);margin-bottom:9px;}
-  .meter-row .bar{margin:0 4px;}
-  .meter-val{width:32px;text-align:right;color:var(--text-dim);}
-
-  .flag-box{
-    display:flex;align-items:center;justify-content:space-between;background:var(--warn-wash);
-    border:1px solid rgba(227,165,63,0.25);border-radius:var(--radius-sm);padding:11px 14px;margin-top:12px;
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    margin-bottom: 2px;
+    cursor: pointer;
   }
-  .flag-box .flag-dot{width:7px;height:7px;border-radius:50%;background:var(--warn);flex-shrink:0;}
-  .flag-title{font-size:12.5px;color:var(--text);font-weight:600;}
-  .flag-sub{font-size:11px;color:var(--text-faint);margin-top:2px;}
-
-  .foot-note{display:flex;align-items:center;gap:16px;padding:12px 18px;border-top:1px solid var(--border-soft);font-family:var(--mono);font-size:10px;letter-spacing:.6px;color:var(--text-faint);}
-  .foot-note .dot{width:5px;height:5px;}
-
-  /* Tabs (Node settings) */
-  .tabs{display:flex;gap:4px;background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px;width:fit-content;margin-bottom:20px;}
-  .tab-btn{padding:7px 16px;border-radius:5px;font-size:12px;color:var(--text-faint);border:none;background:transparent;font-family:var(--mono);letter-spacing:.5px;cursor:pointer;}
-  .tab-btn.active{background:var(--panel);color:var(--accent);}
-  .tab-panel{display:none;}
-  .tab-panel.active{display:block;animation:fadein .2s ease;}
-
-  .role-grid{display:grid;grid-template-columns:140px repeat(5,1fr);gap:0;}
-  .role-grid .rh{font-family:var(--mono);font-size:9.5px;letter-spacing:1px;color:var(--text-faint);padding:10px 8px;border-bottom:1px solid var(--border-soft);}
-  .role-grid .rc{padding:10px 8px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;font-size:12px;color:var(--text-dim);}
-  .role-grid .rc.center{justify-content:center;}
-  .role-name{color:var(--text);font-weight:600;font-size:12.5px;}
-  .role-desc{font-size:10.5px;color:var(--text-faint);margin-top:2px;}
-
-  .empty{text-align:center;padding:32px 20px;color:var(--text-faint);}
-  .empty-title{font-size:13px;color:var(--text-dim);margin-bottom:4px;}
-  .empty-sub{font-size:11.5px;}
-
-  .search-box{display:flex;align-items:center;gap:8px;background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 11px;width:240px;}
-  .search-box input{background:transparent;border:none;outline:none;color:var(--text);font-size:12px;width:100%;}
-  .search-box input::placeholder{color:var(--text-faint);}
-  .search-box svg{width:13px;height:13px;color:var(--text-faint);flex-shrink:0;}
-
-  .head-actions{display:flex;align-items:center;gap:10px;}
-
-  /* Messages area */
-  .chat-stream{display:flex;flex-direction:column;gap:18px;max-height:480px;overflow-y:auto;padding-right:4px;}
-  .chat-msg{display:flex;gap:12px;}
-  .chat-msg.user .avatar{background:var(--panel-2);color:var(--accent);}
-  .chat-msg.agent .avatar{background:var(--accent-wash);color:var(--accent-strong);border-color:var(--accent);}
-  .chat-body{flex:1;min-width:0;}
-  .chat-meta{font-size:11px;color:var(--text-faint);margin-bottom:5px;font-family:var(--mono);}
-  .chat-text{font-size:13.5px;line-height:1.6;color:var(--text);white-space:pre-wrap;word-break:break-word;}
-
-  .file-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:5px;background:var(--panel-2);border:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:8px;}
-
-  /* ================= LOGIN ================= */
-  #login{
-    position:fixed;inset:0;display:flex;z-index:100;
-    background:var(--bg);
+  .nav-item:hover {
+    background: var(--panel);
+    color: var(--text-primary);
   }
-  .login-left{
-    flex:1.05;position:relative;overflow:hidden;
-    background:
-      linear-gradient(var(--border-soft) 1px, transparent 1px) 0 0/72px 72px,
-      linear-gradient(90deg, var(--border-soft) 1px, transparent 1px) 0 0/72px 72px,
-      var(--bg);
-    display:flex;flex-direction:column;justify-content:space-between;
-    padding:44px 56px;
+  .nav-item.active {
+    background: var(--panel-elevated);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
   }
-  .login-left::before{
-    content:'';position:absolute;right:-140px;bottom:-140px;width:420px;height:420px;
-    border:1px solid rgba(127,217,168,0.18);border-radius:50%;
+  .nav-item svg { width: 16px; height: 16px; opacity: 0.8; }
+  .nav-item.active svg { color: var(--accent); opacity: 1; }
+  .nav-badge {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    padding: 1px 7px;
+    border-radius: var(--radius-full);
+    background: var(--panel);
+    color: var(--text-muted);
+    border: 1px solid var(--border-subtle);
   }
-  .login-left::after{
-    content:'';position:absolute;right:-40px;bottom:-40px;width:340px;height:340px;
-    border:1px solid rgba(227,165,63,0.18);border-radius:50%;
+  .nav-item.active .nav-badge {
+    background: var(--accent-subtle);
+    color: var(--accent);
+    border-color: var(--accent-border);
   }
-  .login-brand{display:flex;align-items:center;gap:9px;position:relative;z-index:1;}
-  .login-brand .brand-mark{font-size:20px;}
-  .login-brand .brand-title{font-size:15px;letter-spacing:3px;}
 
-  .login-copy{position:relative;z-index:1;max-width:560px;}
-  .login-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:2.5px;color:var(--text-faint);margin-bottom:18px;}
-  .login-headline{font-family:var(--serif);font-size:58px;line-height:1.08;color:var(--text);font-weight:400;margin:0 0 22px;}
-  .login-headline .accent-line{color:var(--accent);display:block;}
-  .login-sub{font-size:15px;line-height:1.6;color:var(--text-dim);max-width:420px;}
+  .sidebar-spacer { flex: 1; }
 
-  .login-foot{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10.5px;letter-spacing:1px;color:var(--text-faint);position:relative;z-index:1;}
-
-  .login-right{
-    flex:0.86;background:#efe9de;color:#26241e;display:flex;flex-direction:column;
-    justify-content:center;padding:56px 72px;
+  /* Node Health Card */
+  .node-health {
+    background: var(--panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    padding: 12px;
+    margin-bottom: 12px;
   }
-  .login-right .login-eyebrow{color:#8a8372;}
-  .login-right .login-headline{color:#1c1b16;font-size:42px;margin-bottom:10px;}
-  .login-right .login-sub{color:#6f6a5c;margin-bottom:36px;font-size:14px;}
-
-  .field-label{font-size:12.5px;font-weight:600;color:#3a3729;margin-bottom:8px;}
-  .field-wrap{display:flex;align-items:center;gap:10px;background:#f8f5ee;border:1px solid #ddd6c4;border-radius:6px;padding:13px 15px;margin-bottom:20px;}
-  .field-wrap svg{width:15px;height:15px;color:#8a8372;flex-shrink:0;}
-  .field-wrap input{border:none;background:transparent;outline:none;font-size:13.5px;color:#26241e;width:100%;font-family:var(--sans);}
-  .field-wrap input::placeholder{color:#a39c88;}
-
-  .login-btn{
-    width:100%;padding:14px;border-radius:6px;background:#16211b;color:#f4f1e9;border:none;
-    font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;
-    margin-top:4px;
+  .node-health-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    margin-bottom: 8px;
   }
-  .login-btn:hover{background:#1c2b22;}
-  .login-btn svg{width:14px;height:14px;}
+  .status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--text-secondary);
+    box-shadow: 0 0 8px rgba(161, 161, 170, 0.4);
+    animation: pulse 2s infinite ease-in-out;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.85); }
+  }
+  .node-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+  .node-meta {
+    font-size: 11px;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+  }
 
-  .login-note{display:flex;align-items:center;gap:8px;font-size:11.5px;color:#8a8372;margin-top:22px;}
-  .login-note svg{width:14px;height:14px;color:#8a8372;flex-shrink:0;}
-  .login-help{font-size:11.5px;color:#a39c88;margin-top:60px;}
-  .login-help a{text-decoration:underline;}
+  /* User Profile Footer */
+  .user-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: var(--radius);
+    background: var(--panel);
+    border: 1px solid var(--border-subtle);
+  }
+  .user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-full);
+    background: linear-gradient(135deg, #27272a 0%, #3f3f46 100%);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .user-details { flex: 1; min-width: 0; line-height: 1.25; }
+  .user-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .user-role-badge {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+  }
+  .btn-signout {
+    color: var(--text-faint);
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    transition: color 0.15s;
+  }
+  .btn-signout:hover { color: var(--accent); }
+
+  /* Main Workspace */
+  .main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: 100vh;
+    background: var(--bg);
+    overflow: hidden;
+  }
+
+  /* Top Navigation Bar */
+  .topbar {
+    height: 52px;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: rgba(9, 9, 11, 0.8);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  .breadcrumb-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+  }
+  .breadcrumb-nav span { color: var(--text-primary); font-weight: 500; }
+  .topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+  }
+  .badge-pill.active {
+    background: var(--accent-subtle);
+    border-color: var(--accent-border);
+    color: var(--accent);
+  }
+  .icon-button {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    background: var(--panel);
+    border: 1px solid var(--border-subtle);
+    transition: all 0.15s ease;
+  }
+  .icon-button:hover {
+    color: var(--text-primary);
+    border-color: var(--border-active);
+    background: var(--panel-hover);
+  }
+
+  /* Strict View Container Isolation */
+  .view-container {
+    flex: 1;
+    overflow-y: auto;
+    position: relative;
+    background: var(--bg);
+  }
+  
+  .page-view {
+    display: none !important;
+    height: 100%;
+    padding: 24px;
+    animation: fadeIn 0.25s ease forwards;
+  }
+  
+  .page-view.active {
+    display: flex !important;
+    flex-direction: column;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* AGENT WORKSPACE GRID */
+  .workspace-layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+    height: 100%;
+    min-height: 0;
+  }
+
+  /* Chat Conversation Area */
+  .chat-thread-container {
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    scroll-behavior: smooth;
+  }
+
+  /* Empty / Welcome State */
+  .chat-empty-state {
+    margin: auto;
+    max-width: 520px;
+    text-align: center;
+    padding: 40px 20px;
+  }
+  .empty-icon-box {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, #1e1e24 0%, #27272a 100%);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+    color: var(--accent);
+    box-shadow: var(--shadow-md);
+  }
+  .empty-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    letter-spacing: -0.4px;
+  }
+  .empty-desc {
+    font-size: 13.5px;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+
+  /* Prompt Suggestion Pills */
+  .prompt-suggestions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    text-align: left;
+  }
+  .suggestion-pill {
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    background: var(--panel);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.15s ease;
+    cursor: pointer;
+  }
+  .suggestion-pill:hover {
+    background: var(--panel-hover);
+    color: var(--text-primary);
+    border-color: var(--border-active);
+    transform: translateX(2px);
+  }
+  .suggestion-pill span { display: flex; align-items: center; gap: 8px; }
+
+  /* Message Bubbles */
+  .chat-message {
+    display: flex;
+    gap: 14px;
+    max-width: 90%;
+    animation: messageIn 0.25s ease forwards;
+  }
+  @keyframes messageIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .chat-message.user {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+  }
+  .chat-message.agent { align-self: flex-start; }
+
+  .message-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .chat-message.user .message-avatar {
+    background: var(--panel-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+  }
+  .chat-message.agent .message-avatar {
+    background: linear-gradient(135deg, #3f3f46 0%, #18181b 100%);
+    color: #fff;
+    border: 1px solid var(--border-active);
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.05);
+  }
+
+  .message-content {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .message-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+  .chat-message.user .message-meta { justify-content: flex-end; }
+  .model-chip {
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    font-size: 10px;
+  }
+
+  .message-body {
+    padding: 12px 16px;
+    border-radius: var(--radius-lg);
+    font-size: 13.5px;
+    line-height: 1.6;
+    word-break: break-word;
+  }
+  .chat-message.user .message-body {
+    background: var(--panel-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-top-right-radius: 4px;
+  }
+  .chat-message.agent .message-body {
+    background: var(--panel);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    border-top-left-radius: 4px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* File attachment pill in chat */
+  .chat-attachment-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    border: 1px solid var(--border-subtle);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+  }
+
+  /* In-Message Tool Call Accordions */
+  .tool-call-accordion {
+    margin: 10px 0;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .tool-call-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--panel);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    user-select: none;
+  }
+  .tool-call-header:hover { background: var(--panel-hover); }
+  .tool-name-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+  .tool-status-pill {
+    font-size: 10.5px;
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .tool-status-pill.done { background: var(--success-subtle); color: var(--success); }
+  .tool-status-pill.running { background: var(--warning-subtle); color: var(--warning); }
+  .tool-call-body {
+    padding: 10px 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border-subtle);
+    background: var(--bg-subtle);
+    display: none;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .tool-call-accordion.open .tool-call-body { display: block; }
+  .tool-call-accordion.open .chevron { transform: rotate(180deg); }
+  .chevron { transition: transform 0.15s ease; width: 14px; height: 14px; }
+
+  /* In-Message Deliverables / Artifact Card */
+  .message-deliverable-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    margin-top: 12px;
+    border-radius: var(--radius);
+    background: var(--bg);
+    border: 1px solid var(--border-active);
+    box-shadow: 0 0 16px rgba(255, 255, 255, 0.02);
+  }
+  .deliverable-info { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .deliverable-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-subtle);
+    border: 1px solid var(--accent-border);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .deliverable-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .deliverable-sub {
+    font-size: 10.5px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+  }
+  .btn-download {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--text-primary);
+    color: var(--bg);
+    transition: opacity 0.15s;
+    flex-shrink: 0;
+  }
+  .btn-download:hover { opacity: 0.9; }
+
+  /* Message Action Buttons (Copy, etc.) */
+  .message-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+  .chat-message:hover .message-actions { opacity: 1; }
+  .btn-action-sm {
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .btn-action-sm:hover {
+    background: var(--panel);
+    color: var(--text-primary);
+  }
+
+  /* Multi-Modal Composer */
+  .composer-wrapper {
+    padding: 16px 24px 20px;
+    background: var(--bg-subtle);
+    border-top: 1px solid var(--border-subtle);
+  }
+  .composer-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 12px 14px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .composer-card:focus-within {
+    border-color: var(--border-active);
+    box-shadow: 0 0 0 1px var(--border-active);
+  }
+  .attachment-preview-bar {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .attachment-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-primary);
+  }
+  .attachment-remove {
+    cursor: pointer;
+    color: var(--text-muted);
+  }
+  .attachment-remove:hover { color: var(--accent); }
+
+  .composer-input-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+  }
+  .composer-textarea {
+    flex: 1;
+    background: transparent;
+    border: none;
+    resize: none;
+    outline: none;
+    font-size: 13.5px;
+    line-height: 1.5;
+    max-height: 140px;
+    min-height: 24px;
+    color: var(--text-primary);
+  }
+  .composer-textarea::placeholder { color: var(--text-faint); }
+
+  .composer-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-attach {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: color 0.15s, background 0.15s;
+  }
+  .btn-attach:hover {
+    color: var(--text-primary);
+    background: var(--panel-hover);
+  }
+  .btn-send {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    background: var(--text-primary);
+    color: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.15s, transform 0.1s;
+    font-weight: 600;
+  }
+  .btn-send:hover { opacity: 0.9; }
+  .btn-send:active { transform: scale(0.95); }
+  .btn-send:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  /* Right-Hand Telemetry Sidebar */
+  .telemetry-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+  }
+  .telemetry-card {
+    background: var(--panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .card-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-faint);
+  }
+  .card-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  /* Live Trace list */
+  .trace-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .trace-step-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+  }
+  .trace-step-icon {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--success);
+    margin-top: 1px;
+  }
+  .trace-step-main { flex: 1; min-width: 0; }
+  .trace-step-title {
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .trace-step-sub {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+
+  /* Grounding Scorecard */
+  .metric-progress-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .metric-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+  }
+  .progress-bar-bg {
+    height: 5px;
+    background: var(--bg);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--success);
+    border-radius: var(--radius-full);
+    transition: width 0.3s ease;
+  }
+
+  /* Standard Table for Knowledge, Artifacts, Audit, Settings */
+  .table-panel {
+    background: var(--panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .table-panel-header {
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .search-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 12px;
+    font-size: 12.5px;
+    color: var(--text-primary);
+    outline: none;
+    width: 240px;
+  }
+  .search-input:focus { border-color: var(--border-active); }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    text-align: left;
+  }
+  .data-table th {
+    padding: 10px 18px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-subtle);
+  }
+  .data-table td {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+  }
+  .data-table tr:hover td { background: var(--panel-hover); color: var(--text-primary); }
+
+  /* Login Overlay Modal */
+  .login-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(9, 9, 11, 0.85);
+    backdrop-filter: blur(16px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .login-card {
+    width: 380px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .login-header { text-align: center; margin-bottom: 8px; }
+  .login-logo {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius);
+    background: linear-gradient(135deg, #3f3f46 0%, #18181b 100%);
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px;
+    border: 1px solid var(--border-active);
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.05);
+  }
+  .login-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .login-subtitle {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-label {
+    font-size: 11.5px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+  }
+  .form-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    color: var(--text-primary);
+    font-size: 13.5px;
+    outline: none;
+  }
+  .form-input:focus { border-color: var(--border-active); }
+  .btn-primary-block {
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    background: var(--text-primary);
+    color: var(--bg);
+    font-weight: 600;
+    font-size: 13.5px;
+    transition: opacity 0.15s;
+    margin-top: 4px;
+  }
+  .btn-primary-block:hover { opacity: 0.9; }
+
+  /* Utility badges */
+  .tag-pill {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    padding: 2px 7px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-secondary);
+  }
+  .tag-pill.accent {
+    border-color: var(--accent-border);
+    background: var(--accent-subtle);
+    color: var(--text-primary);
+  }
+  .tag-pill.success {
+    border-color: var(--success-border);
+    background: var(--success-subtle);
+    color: var(--success);
+  }
+  .tag-pill.danger {
+    border-color: var(--danger-border);
+    background: var(--danger-subtle);
+    color: var(--danger);
+  }
 
   /* Spinner */
-  .spinner{width:14px;height:14px;border:2px solid var(--accent-wash-2);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;display:inline-block;}
-  @keyframes spin{to{transform:rotate(360deg);}}
-
-  @media (max-width: 900px){
-    #login{flex-direction:column;overflow-y:auto;}
-    .login-left,.login-right{flex:none;padding:32px 26px;}
-    .login-headline{font-size:38px;}
-    .login-right .login-headline{font-size:30px;}
+  .spinner-sm {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.1);
+    border-top-color: var(--text-primary);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: inline-block;
   }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 
-<!-- ================= LOGIN SCREEN ================= -->
-<div id="login">
-  <div class="login-left">
-    <div class="login-brand">
-      <span class="brand-mark">⌁</span>
-      <div class="brand-title" style="font-family:var(--mono);font-weight:600;">EDGEMIND</div>
-    </div>
-    <div class="login-copy">
-      <div class="login-eyebrow">LOCAL INTELLIGENCE / 00.01</div>
-      <h1 class="login-headline">Reasoning,<span class="accent-line">kept close.</span></h1>
-      <p class="login-sub">A sovereign workspace for teams who need powerful agents without the data leaving the room.</p>
-    </div>
-    <div class="login-foot"><span class="dot"></span>NODE 01 / AIR-GAPPED / VERIFIED</div>
-  </div>
-
-  <div class="login-right">
-    <div class="login-eyebrow">SECURE ACCESS</div>
-    <h1 class="login-headline">Welcome back.</h1>
-    <p class="login-sub">Sign in to your local intelligence workspace.</p>
-
-    <div class="field-label">Operator identity</div>
-    <div class="field-wrap">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-      <input id="login-username" value="operator" />
-    </div>
-
-    <div class="field-label">Access key</div>
-    <div class="field-wrap">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-      <input type="password" id="login-password" value="kavach123" />
-    </div>
-
-    <button class="login-btn" id="enter-workspace-btn">Enter workspace <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M8 7h9v9"/></svg></button>
-
-    <div class="login-note">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2 4 5v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V5l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>
-      Authenticated locally · no external identity provider
-    </div>
-    <div class="login-help">Need access? <a href="#">Contact your system administrator.</a></div>
-  </div>
-</div>
-
-<div class="app">
-
-  <!-- ================= SIDEBAR ================= -->
+<div class="app-layout">
+  
+  <!-- LEFT SIDEBAR -->
   <aside class="sidebar">
     <div class="brand">
-      <span class="brand-mark">⌁</span>
-      <div class="brand-text">
-        <div class="brand-title">EDGEMIND</div>
-        <div class="brand-sub">CONTROL CENTER</div>
+      <div class="brand-logo">EM</div>
+      <div class="brand-info">
+        <div class="brand-title">EdgeMind</div>
+        <div class="brand-subtitle">AIR-GAPPED AGENT</div>
       </div>
     </div>
 
-    <div class="nav-group">
-      <div class="nav-label">WORKSPACE</div>
+    <!-- Navigation List -->
+    <div class="nav-section">
+      <div class="nav-header">Workspace</div>
       <div class="nav-item active" data-page="workspace">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13 2 3 14h8l-1 8 10-12h-8l1-8z"/></svg>
-        Agent workspace
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M15 9h6"/></svg>
+        <span>Agent Workspace</span>
       </div>
       <div class="nav-item" data-page="knowledge">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-        Knowledge library <span class="nav-count" id="sidebar-doc-count">0</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>Knowledge Library</span>
+        <span class="nav-badge" id="sidebar-doc-count">0</span>
       </div>
       <div class="nav-item" data-page="artifacts">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-        Artifacts <span class="nav-count" id="sidebar-art-count">0</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>Deliverables</span>
+        <span class="nav-badge" id="sidebar-art-count">0</span>
+      </div>
+      <div class="nav-item" data-page="audit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span>Audit Trail</span>
       </div>
     </div>
-
-    <div class="nav-group">
-      <div class="nav-label">SYSTEM</div>
-      <div class="nav-item" data-page="audit">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>
-        Audit trail
-      </div>
+    
+    <div class="nav-section">
+      <div class="nav-header">System</div>
       <div class="nav-item" data-page="settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1z"/></svg>
-        Node settings
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        <span>Node Settings</span>
       </div>
     </div>
 
     <div class="sidebar-spacer"></div>
 
-    <div class="node-card">
-      <div class="node-card-top">
-        <div class="node-status"><span class="dot"></span>LOCAL NODE</div>
-        <span class="verified-pill">VERIFIED</span>
+    <!-- Node Sovereignty & Egress Status -->
+    <div class="node-health">
+      <div class="node-health-header">
+        <span>SOVEREIGNTY</span>
+        <span class="status-indicator">
+          <span class="status-dot"></span>
+          <span id="sov-status-text">AIR-GAPPED</span>
+        </span>
       </div>
-      <div class="node-id">edgemind-node-01</div>
-      <div class="node-note">Air-gapped execution ready</div>
+      <div class="node-title" id="sov-main-title">100% Local Inference</div>
+      <div class="node-meta" id="sov-meta-desc">Zero egress detected • Ollama</div>
     </div>
 
-    <div class="user-row">
-      <div class="avatar" id="current-user-avatar">OP</div>
-      <div class="user-meta">
+    <!-- User Profile & Signout -->
+    <div class="user-profile">
+      <div class="user-avatar" id="current-user-avatar">OP</div>
+      <div class="user-details">
         <div class="user-name" id="current-user-name">Operator</div>
-        <div class="user-role" id="current-user-role">Role: operator</div>
+        <div class="user-role-badge" id="current-user-role">Role: operator</div>
       </div>
-      <a class="signout" id="signout-btn">Sign out</a>
+      <button class="btn-signout" id="signout-btn" title="Sign out">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
     </div>
   </aside>
 
-  <!-- ================= MAIN ================= -->
-  <main class="main">
-    <div class="topbar">
-      <div class="breadcrumb">EDGEMIND / <b id="crumb">AGENT WORKSPACE</b></div>
-      <div class="topbar-right">
-        <div class="pill"><span class="dot"></span>SOVEREIGN NODE ONLINE</div>
-        <div class="icon-btn" title="Refresh data" id="refresh-all-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg></div>
+  <!-- MAIN VIEWPORT -->
+  <main class="main-content">
+    
+    <!-- Topbar Header -->
+    <header class="topbar">
+      <div class="breadcrumb-nav">
+        <span>EdgeMind</span> / <span id="crumb">AGENT WORKSPACE</span>
       </div>
-    </div>
-
-    <div class="content">
-
-      <!-- ============ PAGE: AGENT WORKSPACE ============ -->
-      <section class="page active" id="page-workspace">
-        <div class="page-head">
-          <div class="eyebrow" id="today-date-label">SOVEREIGN WORKSPACE</div>
-          <div class="page-title" id="welcome-title">Agent Workbench</div>
-          <div class="page-desc">Reasoning, multimodality &amp; artifact generation — 100% on-premise.</div>
+      <div class="topbar-actions">
+        <div class="badge-pill active">
+          <span class="status-dot"></span>
+          <span id="active-model-badge">qwen2.5:1.5b • Ollama</span>
         </div>
+        <button class="icon-button" id="refresh-all-btn" title="Refresh data">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        </button>
+      </div>
+    </header>
 
-        <div class="grid-2">
-          <!-- LEFT: task + evidence + deliverables -->
-          <div class="stack">
-            <div class="panel">
-              <div class="panel-head">
-                <div>
-                  <div class="eyebrow" id="task-id-badge">SESSION / ACTIVE</div>
-                  <div class="panel-title" id="task-status-title">Agent Execution Stream</div>
+    <div class="view-container">
+
+      <!-- ================= PAGE 1: AGENT WORKSPACE ================= -->
+      <section class="page-view active" id="page-workspace">
+        <div class="workspace-layout">
+          
+          <!-- Chat Thread Container (Assistant-UI style) -->
+          <div class="chat-thread-container">
+            
+            <div class="chat-messages" id="chat-messages">
+              
+              <!-- Empty Hero State -->
+              <div class="chat-empty-state" id="chat-empty-state">
+                <div class="empty-icon-box">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
                 </div>
-                <span class="tag" id="task-status-badge">READY</span>
-              </div>
-              <div class="panel-body">
-                <div class="chat-stream" id="chat-messages">
-                  <div class="empty" id="chat-empty-state">
-                    <div class="empty-title">Ready for instructions</div>
-                    <div class="empty-sub">Type a task below or attach a scanned report/drawing to begin analysis.</div>
+                <h1 class="empty-title" id="welcome-title">Welcome to EdgeMind</h1>
+                <p class="empty-desc">Autonomous on-premise AI agent with multi-modal vision, semantic RAG search, tool execution, and cryptographic verification.</p>
+                
+                <div class="prompt-suggestions">
+                  <div class="suggestion-pill" data-prompt="Search SOPs and tell me the maximum valve pressure">
+                    <span>🔍 Search SOPs for Maximum Valve Pressure</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  </div>
+                  <div class="suggestion-pill" data-prompt="Generate a DOCX safety checklist and procedure report for valve maintenance">
+                    <span>📄 Generate a DOCX Valve Safety Procedure</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  </div>
+                  <div class="suggestion-pill" data-prompt="Analyze the attached inspection document and extract key telemetry">
+                    <span>📎 Analyze Attached Inspection Scan (Attach Image)</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                   </div>
                 </div>
               </div>
-              <!-- INPUT FOOTER -->
-              <div style="border-top:1px solid var(--border-soft);padding:14px 18px;background:var(--panel-2);">
-                <div id="upload-indicator-box" style="display:none;margin-bottom:10px;">
-                  <div class="file-badge">
-                    <span>📎</span>
-                    <span id="attached-filename">file.pdf</span>
-                    <span id="remove-file-btn" style="cursor:pointer;margin-left:6px;color:var(--text-faint);">✕</span>
+
+            </div>
+
+            <!-- Floating Multi-Modal Composer -->
+            <div class="composer-wrapper">
+              <div class="composer-card">
+                
+                <!-- Attached File Preview Bar -->
+                <div class="attachment-preview-bar" id="upload-indicator-box">
+                  <div class="attachment-chip">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    <span id="attached-filename">filename.png</span>
+                    <span class="attachment-remove" id="remove-file-btn">×</span>
                   </div>
                 </div>
-                <div style="display:flex;align-items:center;gap:12px;">
-                  <input type="file" id="agent-file" style="display:none;" accept="image/*,application/pdf" />
-                  <button id="agent-upload-btn" class="icon-btn" title="Attach Document / Image / PDF" style="flex-shrink:0;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+
+                <div class="composer-input-row">
+                  <input type="file" id="agent-file" style="display:none;" accept="image/*,.pdf" />
+                  <button class="btn-attach" id="agent-upload-btn" title="Attach image or PDF">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                   </button>
-                  <input id="agent-prompt" placeholder="Ask EdgeMind to analyze documents, extract tables, draft notes..." style="flex:1;background:transparent;border:none;outline:none;color:var(--text);font-size:13.5px;font-family:var(--sans);" />
-                  <button id="agent-submit" class="btn primary" style="flex-shrink:0;">
-                    <span id="btn-text">Execute</span>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+
+                  <textarea class="composer-textarea" id="agent-prompt" rows="1" placeholder="Ask EdgeMind to search SOPs, extract tables, generate reports..."></textarea>
+
+                  <button class="btn-send" id="agent-submit" title="Send message (Enter)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                   </button>
                 </div>
+
               </div>
             </div>
 
-            <div class="grid-3-workspace" style="margin-top:0;">
-              <!-- Evidence Panel -->
-              <div class="panel">
-                <div class="panel-head">
-                  <div>
-                    <div class="eyebrow">EVIDENCE / RAG + VISION</div>
-                    <div class="panel-title">Source citations <span style="color:var(--text-faint);font-weight:400;" id="evidence-count">0</span></div>
-                  </div>
-                </div>
-                <div class="panel-body" style="padding-top:6px;" id="evidence-list">
-                  <div class="empty" style="padding:20px 0;"><div class="empty-sub">No citations retrieved yet</div></div>
-                </div>
-              </div>
-
-              <!-- Deliverables Panel -->
-              <div class="panel">
-                <div class="panel-head">
-                  <div>
-                    <div class="eyebrow">DELIVERABLES</div>
-                    <div class="panel-title">Generated Artifacts <span style="color:var(--text-faint);font-weight:400;" id="workspace-artifact-count">0</span></div>
-                  </div>
-                </div>
-                <div class="panel-body" style="padding-top:6px;" id="workspace-artifacts-list">
-                  <div class="empty" style="padding:20px 0;"><div class="empty-sub">No artifacts produced yet</div></div>
-                </div>
-              </div>
-            </div>
           </div>
 
-          <!-- RIGHT: live trace + sovereignty + validation -->
-          <div class="stack">
-            <div class="panel">
-              <div class="panel-head">
-                <div>
-                  <div class="eyebrow">LIVE EXECUTION</div>
-                  <div class="panel-title">Agent trace</div>
-                </div>
-                <span class="pill" id="trace-pill" style="padding:3px 9px;">IDLE</span>
+          <!-- Right Telemetry Panel -->
+          <div class="telemetry-sidebar">
+            
+            <!-- Live Execution Trace Card -->
+            <div class="telemetry-card">
+              <div class="card-head">
+                <span class="card-eyebrow">Execution Trace</span>
+                <span class="tag-pill" id="trace-pill">IDLE</span>
               </div>
-              <div class="panel-body" id="trace-list">
-                <div class="empty" style="padding:20px 0;"><div class="empty-sub">Awaiting task submission</div></div>
+              <div class="card-title">Live Orchestration</div>
+              <div class="trace-list" id="trace-list">
+                <div class="trace-step-item">
+                  <span class="trace-step-icon">○</span>
+                  <div class="trace-step-main">
+                    <div class="trace-step-title">Standby</div>
+                    <div class="trace-step-sub">Awaiting prompt dispatch</div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div class="panel">
-              <div class="panel-head">
-                <div>
-                  <div class="eyebrow">SOVEREIGNTY STATUS</div>
-                  <div class="panel-title">Local &amp; protected</div>
-                </div>
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--accent)" stroke-width="1.6"><path d="M12 2 4 5v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V5l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>
+            <!-- Grounding & Anti-Hallucination Scorecard -->
+            <div class="telemetry-card">
+              <div class="card-head">
+                <span class="card-eyebrow">Validation Engine</span>
+                <span class="tag-pill success" id="grounding-score-badge">100% SCORE</span>
               </div>
-              <div class="panel-body">
-                <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
-                  <div class="metric-ring">
-                    <svg width="64" height="64">
-                      <circle cx="32" cy="32" r="27" stroke="var(--panel-2)" stroke-width="5" fill="none"/>
-                      <circle cx="32" cy="32" r="27" stroke="var(--accent)" stroke-width="5" fill="none" stroke-dasharray="169.6" stroke-dashoffset="0" stroke-linecap="round"/>
-                    </svg>
-                    <div class="metric-ring-label">100<span>%</span></div>
-                  </div>
-                  <div>
-                    <div style="font-size:13px;color:var(--text);font-weight:600;" id="egress-status-text">No egress detected</div>
-                    <div style="font-size:11px;color:var(--text-faint);">100% on-premise execution</div>
-                  </div>
+              <div class="card-title">Grounding Report</div>
+              
+              <div class="metric-progress-row">
+                <div class="metric-label-row">
+                  <span>Schema Check</span>
+                  <span id="val-schema">✓ pass</span>
                 </div>
-                <div class="meter-row"><span style="width:56px;">CPU</span><div class="bar green"><div style="width:35%;"></div></div><span class="meter-val">Local</span></div>
-                <div class="meter-row"><span style="width:56px;">INFERENCE</span><div class="bar green"><div style="width:100%;"></div></div><span class="meter-val">Ollama</span></div>
-              </div>
-              <div class="foot-note">
-                <span><span class="dot"></span> Air-gap verified</span>
-                <span><span class="dot"></span> AES-256 Storage</span>
+                <div class="metric-label-row">
+                  <span>Grounding Verification</span>
+                  <span id="val-grounding">✓ verified</span>
+                </div>
+                <div class="metric-label-row">
+                  <span>Hallucination Risk</span>
+                  <span id="val-risk" style="color:var(--success);">Low</span>
+                </div>
+                <div class="metric-label-row">
+                  <span>Replanning Retries</span>
+                  <span id="val-retries">0 / 3</span>
+                </div>
               </div>
             </div>
 
-            <div class="panel">
-              <div class="panel-head">
-                <div>
-                  <div class="eyebrow">VALIDATION ENGINE</div>
-                  <div class="panel-title">Grounding report</div>
-                </div>
-                <span class="tag" id="grounding-score-badge">— SCORE</span>
+            <!-- Citations & Visual Evidence Card -->
+            <div class="telemetry-card">
+              <div class="card-head">
+                <span class="card-eyebrow">Source Citations</span>
+                <span class="tag-pill" id="evidence-count">0</span>
               </div>
-              <div class="panel-body" id="grounding-details">
-                <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Schema check <span class="check" id="val-schema">✓ pass</span></div></div>
-                <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Grounding validation <span class="check" id="val-grounding">✓ verified</span></div></div>
-                <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Hallucination risk <span class="check" id="val-risk">Low</span></div></div>
-                <div class="row-item" style="border-bottom:none;"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Replanning retries <span style="color:var(--text-faint);" id="val-retries">0 / 3</span></div></div>
+              <div class="card-title">Retrieved Evidence</div>
+              <div class="trace-list" id="evidence-list">
+                <div style="font-size:12px;color:var(--text-faint);padding:6px 0;">No RAG chunks retrieved yet.</div>
               </div>
             </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ================= PAGE 2: KNOWLEDGE LIBRARY ================= -->
+      <section class="page-view" id="page-knowledge">
+        <div class="table-panel">
+          <div class="table-panel-header">
+            <div>
+              <h2 style="font-size:16px;font-weight:600;">RAG Knowledge Documents</h2>
+              <p style="font-size:12px;color:var(--text-muted);margin-top:2px;" id="doc-count-eyebrow">Indexed in Qdrant Vector DB</p>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <input type="text" class="search-input" id="knowledge-search" placeholder="Search indexed documents..." />
+              <input type="file" id="knowledge-file-input" style="display:none;" />
+              <button class="btn-download" id="knowledge-upload-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span>Upload SOP / PDF</span>
+              </button>
+            </div>
+          </div>
+          <div style="padding:16px;" id="knowledge-list">
+            <!-- Dynamic documents list -->
           </div>
         </div>
       </section>
 
-      <!-- ============ PAGE: KNOWLEDGE LIBRARY ============ -->
-      <section class="page" id="page-knowledge">
-        <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-end;">
-          <div>
-            <div class="eyebrow" id="doc-count-eyebrow">RAG INDEX / 0 DOCUMENTS</div>
-            <div class="page-title">Knowledge library</div>
-            <div class="page-desc">SOPs, inspection reports, and drawings indexed in Qdrant for semantic search and grounded tool actions.</div>
-          </div>
-          <div class="head-actions">
-            <div class="search-box">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-              <input id="knowledge-search" placeholder="Filter documents…"/>
+      <!-- ================= PAGE 3: DELIVERABLES / ARTIFACTS ================= -->
+      <section class="page-view" id="page-artifacts">
+        <div class="table-panel">
+          <div class="table-panel-header">
+            <div>
+              <h2 style="font-size:16px;font-weight:600;">Generated Deliverables</h2>
+              <p style="font-size:12px;color:var(--text-muted);margin-top:2px;" id="artifact-count-eyebrow">DOCX, XLSX, PDF files created by EdgeMind</p>
             </div>
-            <input type="file" id="knowledge-file-input" style="display:none;" />
-            <button class="btn primary" id="knowledge-upload-btn">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>Upload SOP / PDF
-            </button>
           </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-body" id="knowledge-list" style="padding-top:6px;">
-            <div class="empty"><div class="empty-title">Loading documents...</div></div>
+          <div style="padding:16px;" id="artifacts-list">
+            <!-- Dynamic artifacts list -->
           </div>
         </div>
       </section>
 
-      <!-- ============ PAGE: ARTIFACTS ============ -->
-      <section class="page" id="page-artifacts">
-        <div class="page-head">
-          <div class="eyebrow" id="artifact-count-eyebrow">DELIVERABLES / 0 ARTIFACTS</div>
-          <div class="page-title">Artifacts</div>
-          <div class="page-desc">Cryptographically hash-stamped deliverables (DOCX, XLSX, PDF) ready for direct download.</div>
-        </div>
-        <div class="panel">
-          <div class="panel-body" id="artifacts-list" style="padding-top:6px;">
-            <div class="empty"><div class="empty-title">Loading artifacts...</div></div>
+      <!-- ================= PAGE 4: AUDIT TRAIL ================= -->
+      <section class="page-view" id="page-audit">
+        <div class="table-panel">
+          <div class="table-panel-header">
+            <div>
+              <h2 style="font-size:16px;font-weight:600;">Cryptographic Audit Trail</h2>
+              <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">Tamper-evident hash-chained logs</p>
+            </div>
           </div>
-        </div>
-      </section>
-
-      <!-- ============ PAGE: AUDIT TRAIL ============ -->
-      <section class="page" id="page-audit">
-        <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-end;">
-          <div>
-            <div class="eyebrow">HASH-CHAINED LOG</div>
-            <div class="page-title">Audit trail</div>
-            <div class="page-desc">Every model call, tool execution, and document upload — cryptographically linked with SHA-256 hashes.</div>
-          </div>
-          <span class="tag" id="chain-status-tag">CHAIN VERIFIED</span>
-        </div>
-        <div class="panel">
-          <table class="table" id="audit-table">
-            <thead><tr><th>TIME</th><th>ACTOR</th><th>EVENT</th><th>DETAIL</th><th>HASH</th><th>STATUS</th></tr></thead>
-            <tbody id="audit-body">
-              <tr><td colspan="6" style="text-align:center;color:var(--text-faint);">Loading audit trail...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- ============ PAGE: NODE SETTINGS ============ -->
-      <section class="page" id="page-settings">
-        <div class="page-head">
-          <div class="eyebrow">SYSTEM CONFIGURATION</div>
-          <div class="page-title">Node settings</div>
-          <div class="page-desc">Local Ollama models, Role-Based Access Control matrix, and air-gap verification.</div>
-        </div>
-
-        <div class="tabs">
-          <button class="tab-btn active" data-tab="registry">Model registry</button>
-          <button class="tab-btn" data-tab="rbac">Security &amp; RBAC</button>
-          <button class="tab-btn" data-tab="sovereignty">Sovereignty</button>
-        </div>
-
-        <div class="tab-panel active" id="tab-registry">
-          <div class="panel">
-            <table class="table">
-              <thead><tr><th>MODEL</th><th>MODALITY</th><th>ROLE</th><th>QUANT</th><th>STATUS</th><th>INTEGRITY</th></tr></thead>
-              <tbody id="registry-body">
-                <tr><td class="col-strong mono">qwen2.5:1.5b</td><td>Reasoning</td><td class="mono">General / RAG</td><td class="mono">Q4_K_M</td><td><span class="status-dot-row"><span class="dot"></span>active</span></td><td class="check">✓ verified</td></tr>
-                <tr><td class="col-strong mono">qwen2.5-coder:1.5b</td><td>Coding / Structuring</td><td class="mono">Artifact Generation</td><td class="mono">Q4_K_M</td><td><span class="status-dot-row"><span class="dot"></span>active</span></td><td class="check">✓ verified</td></tr>
-                <tr><td class="col-strong mono">llava</td><td>Vision &amp; Multimodal</td><td class="mono">OCR / Diagram Parser</td><td class="mono">FP16 / 4.7GB</td><td><span class="status-dot-row"><span class="dot"></span>active</span></td><td class="check">✓ verified</td></tr>
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Operator</th>
+                  <th>Action</th>
+                  <th>Details</th>
+                  <th>SHA-256 Hash</th>
+                  <th>Integrity</th>
+                </tr>
+              </thead>
+              <tbody id="audit-body">
+                <!-- Dynamic audit rows -->
               </tbody>
             </table>
           </div>
         </div>
+      </section>
 
-        <div class="tab-panel" id="tab-rbac">
-          <div class="panel">
-            <div class="panel-body">
-              <div class="role-grid">
-                <div class="rh">ROLE</div><div class="rh" style="text-align:center;">VIEW</div><div class="rh" style="text-align:center;">EXECUTE AGENT</div><div class="rh" style="text-align:center;">GENERATE ARTIFACTS</div><div class="rh" style="text-align:center;">APPROVE</div><div class="rh" style="text-align:center;">ADMIN</div>
-                <div class="rc"><div><div class="role-name">Admin</div><div class="role-desc">Full system authority</div></div></div>
-                <div class="rc center"><span class="check">✓</span></div><div class="rc center"><span class="check">✓</span></div><div class="rc center"><span class="check">✓</span></div><div class="rc center"><span class="check">✓</span></div><div class="rc center"><span class="check">✓</span></div>
-                <div class="rc"><div><div class="role-name">Operator</div><div class="role-desc">Execute tasks, RAG, &amp; artifacts</div></div></div>
-                <div class="rc center"><span class="check">✓</span></div><div class="rc center"><span class="check">✓</span></div><div class="rc center"><span class="check">✓</span></div><div class="rc center"><span class="check">✓</span></div><div class="rc center"><span class="cross">–</span></div>
-                <div class="rc"><div><div class="role-name">Viewer</div><div class="role-desc">Read-only audit &amp; artifact access</div></div></div>
-                <div class="rc center"><span class="check">✓</span></div><div class="rc center"><span class="cross">–</span></div><div class="rc center"><span class="cross">–</span></div><div class="rc center"><span class="cross">–</span></div><div class="rc center"><span class="cross">–</span></div>
-              </div>
+      <!-- ================= PAGE 5: NODE SETTINGS ================= -->
+      <section class="page-view" id="page-settings">
+        <div class="table-panel">
+          <div class="table-panel-header">
+            <div>
+              <h2 style="font-size:16px;font-weight:600;">Model Registry</h2>
+              <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">Local Ollama models configured on this node</p>
             </div>
           </div>
-        </div>
-
-        <div class="tab-panel" id="tab-sovereignty">
-          <div class="grid-2">
-            <div class="stack">
-              <div class="panel">
-                <div class="panel-head"><div><div class="eyebrow">NETWORK</div><div class="panel-title">Egress firewall</div></div><span class="tag">AIR-GAPPED</span></div>
-                <div class="panel-body">
-                  <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Default-deny egress filter <span class="check">✓ active</span></div></div>
-                  <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Outbound socket monitoring <span class="check">✓ 0 egress</span></div></div>
-                  <div class="row-item" style="border-bottom:none;"><div class="row-main row-title" style="display:flex;justify-content:space-between;">External cloud calls <span style="color:var(--accent);">0 detected</span></div></div>
-                </div>
-              </div>
-              <div class="panel">
-                <div class="panel-head"><div><div class="eyebrow">STORAGE</div><div class="panel-title">Encryption at rest</div></div></div>
-                <div class="panel-body">
-                  <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Postgres + MinIO artifacts <span class="check">✓ AES-256</span></div></div>
-                  <div class="row-item" style="border-bottom:none;"><div class="row-main row-title" style="display:flex;justify-content:space-between;">Master key storage <span style="color:var(--text-dim);">local, air-gapped</span></div></div>
-                </div>
-              </div>
-            </div>
-            <div class="panel">
-              <div class="panel-head"><div><div class="eyebrow">LOCAL INFRASTRUCTURE</div><div class="panel-title">Container health</div></div></div>
-              <div class="panel-body">
-                <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">edgemind-backend <span class="check">✓ healthy</span></div></div>
-                <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">edgemind-postgres <span class="check">✓ healthy</span></div></div>
-                <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">edgemind-qdrant <span class="check">✓ healthy</span></div></div>
-                <div class="row-item"><div class="row-main row-title" style="display:flex;justify-content:space-between;">edgemind-ollama <span class="check">✓ healthy</span></div></div>
-                <div class="row-item" style="border-bottom:none;"><div class="row-main row-title" style="display:flex;justify-content:space-between;">edgemind-minio <span class="check">✓ healthy</span></div></div>
-              </div>
-            </div>
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Model ID</th>
+                  <th>Modality</th>
+                  <th>Role</th>
+                  <th>Quantization</th>
+                  <th>Status</th>
+                  <th>Integrity</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="font-family:var(--font-mono);color:var(--text-primary);font-weight:500;">qwen2.5:1.5b</td>
+                  <td>Reasoning</td>
+                  <td style="font-family:var(--font-mono);">General / RAG</td>
+                  <td style="font-family:var(--font-mono);">Q4_K_M</td>
+                  <td><span class="status-indicator"><span class="status-dot"></span>active</span></td>
+                  <td style="color:var(--success);">✓ verified</td>
+                </tr>
+                <tr>
+                  <td style="font-family:var(--font-mono);color:var(--text-primary);font-weight:500;">qwen2.5-coder:1.5b</td>
+                  <td>Coding / Structuring</td>
+                  <td style="font-family:var(--font-mono);">Artifact Generation</td>
+                  <td style="font-family:var(--font-mono);">Q4_K_M</td>
+                  <td><span class="status-indicator"><span class="status-dot"></span>active</span></td>
+                  <td style="color:var(--success);">✓ verified</td>
+                </tr>
+                <tr>
+                  <td style="font-family:var(--font-mono);color:var(--text-primary);font-weight:500;">llava</td>
+                  <td>Vision / OCR</td>
+                  <td style="font-family:var(--font-mono);">Image Extraction</td>
+                  <td style="font-family:var(--font-mono);">Q4_0</td>
+                  <td><span class="status-indicator"><span class="status-dot"></span>active</span></td>
+                  <td style="color:var(--success);">✓ verified</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -707,6 +1412,26 @@
   </main>
 </div>
 
-<script src='app.js'></script>
+<!-- LOGIN MODAL -->
+<div class="login-overlay" id="login">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="login-logo">EM</div>
+      <h2 class="login-title">EdgeMind Sovereign AI</h2>
+      <p class="login-subtitle">Air-gapped Agentic Workbench</p>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Username</label>
+      <input type="text" class="form-input" id="login-username" value="operator" placeholder="Username" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input type="password" class="form-input" id="login-password" value="kavach123" placeholder="Password" />
+    </div>
+    <button class="btn-primary-block" id="enter-workspace-btn">Enter Workspace</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
 </body>
 </html>
