@@ -70,11 +70,11 @@ async function doLogin() {
         if (err.detail) errDetail = err.detail;
       } catch (_) {}
       alert(`Authentication failed: ${errDetail}`);
-      btn.textContent = 'Enter Workspace';
+      btn.textContent = 'Sign in';
     }
   } catch (e) {
     alert(`Error connecting to backend (${API}): ${e.message}`);
-    btn.textContent = 'Enter Workspace';
+    btn.textContent = 'Sign in';
   }
 }
 
@@ -87,7 +87,7 @@ document.getElementById('signout-btn').addEventListener('click', () => {
   const login = document.getElementById('login');
   login.style.display = 'flex';
   login.style.opacity = '1';
-  document.getElementById('enter-workspace-btn').textContent = 'Enter Workspace';
+  document.getElementById('enter-workspace-btn').textContent = 'Sign in';
 });
 
 // ---------------- NAVIGATION ----------------
@@ -117,9 +117,15 @@ document.querySelectorAll('.nav-item').forEach(item => {
   });
 });
 
-document.getElementById('refresh-all-btn')?.addEventListener('click', () => {
+document.getElementById('refresh-all-btn')?.addEventListener('click', function() {
   loadAllData();
   fetchSovereignty();
+  const svg = this.querySelector('svg');
+  if (svg) {
+    svg.style.transition = 'transform 0.5s ease';
+    svg.style.transform = `rotate(${svg.dataset.rot ? parseInt(svg.dataset.rot) + 360 : 360}deg)`;
+    svg.dataset.rot = svg.dataset.rot ? parseInt(svg.dataset.rot) + 360 : 360;
+  }
 });
 
 function loadAllData() {
@@ -127,7 +133,93 @@ function loadAllData() {
   loadArtifacts();
   loadAuditLogs();
   fetchSovereignty();
+  loadModels();
 }
+
+async function loadModels() {
+  try {
+    const res = await fetch(`${API}/models`, { headers: getHeaders() });
+    if (res.ok) {
+      const models = await res.json();
+      renderModels(models);
+      if (models.length > 0) {
+        const badge = document.getElementById('active-model-badge');
+        if (badge && badge.textContent === 'Loading models...') {
+          badge.textContent = `${models[0].id}`;
+        }
+      }
+    } else {
+      document.getElementById('models-body').innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-faint);padding:24px;">Failed to load models.</td></tr>`;
+    }
+  } catch (e) {
+    document.getElementById('models-body').innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-faint);padding:24px;">Network error loading models.</td></tr>`;
+  }
+}
+
+function renderModels(models) {
+  const tbody = document.getElementById('models-body');
+  if (!models || models.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-faint);padding:24px;">No models configured.</td></tr>`;
+    return;
+  }
+  
+  tbody.innerHTML = models.map(m => `
+    <tr>
+      <td style="font-family:var(--font-mono);color:var(--text-primary);font-weight:500;">${escapeHtml(m.id)}</td>
+      <td>${escapeHtml(m.modality)}</td>
+      <td style="font-family:var(--font-mono);font-size:11px;">${escapeHtml(m.capabilities)}</td>
+      <td style="font-family:var(--font-mono);">${m.vram_gb} GB</td>
+      <td><span class="status-indicator"><span class="status-dot"></span>${escapeHtml(m.status)}</span></td>
+      <td style="${m.verified ? 'color:var(--success);' : 'color:var(--warning);'}">${m.verified ? '✓ verified' : '⚠ unverified'}</td>
+    </tr>
+  `).join('');
+}
+
+// Global caches for chat actions
+window._promptCache = window._promptCache || {};
+window._responseCache = window._responseCache || {};
+
+window.editPrompt = function(id) {
+  const p = window._promptCache[id];
+  if (p) {
+    document.getElementById('agent-prompt').value = p;
+    document.getElementById('agent-prompt').focus();
+  }
+};
+
+window.copyPrompt = function(btn, id) {
+  const p = window._promptCache[id];
+  if (p) {
+    navigator.clipboard.writeText(p);
+    const label = btn.querySelector('.copy-label');
+    if (label) {
+      label.textContent = 'Copied!';
+      setTimeout(() => label.textContent = 'Copy', 2000);
+    }
+  }
+};
+
+window.copyAgentText = function(btn, id) {
+  const text = window._responseCache[id];
+  if (text) {
+    navigator.clipboard.writeText(text);
+    const label = btn.querySelector('.copy-label');
+    if (label) {
+      label.textContent = 'Copied!';
+      setTimeout(() => label.textContent = 'Copy', 2000);
+    }
+  }
+};
+
+window.retryPrompt = function(id) {
+  const p = window._promptCache[id];
+  if (p) {
+    document.getElementById('agent-prompt').value = p;
+    submitAgentTask();
+  }
+};
+
+
 
 // ---------------- PROMPT SUGGESTIONS ----------------
 document.querySelectorAll('.suggestion-pill').forEach(pill => {
@@ -213,9 +305,11 @@ async function submitAgentTask() {
 
   // 1. Render User Message Bubble with Assistant-UI actions
   const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const agentMsgId = `agent-msg-${Date.now()}`;
+  window._promptCache[agentMsgId] = prompt || 'Analyze attached document';
+
   const userHtml = `
     <div class="chat-message user">
-      <div class="message-avatar">${currentUser.username.substring(0, 2).toUpperCase()}</div>
       <div class="message-content">
         <div class="message-meta">YOU • ${now}</div>
         <div class="message-body">
@@ -223,11 +317,11 @@ async function submitAgentTask() {
           ${escapeHtml(prompt || 'Analyze attached document')}
         </div>
         <div class="message-actions" style="justify-content: flex-end;">
-          <button class="btn-action-sm">
+          <button class="btn-action-sm" onclick="editPrompt('${agentMsgId}')">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Edit
           </button>
-          <button class="btn-action-sm" onclick="navigator.clipboard.writeText('${escapeHtml(prompt || '').replace(/'/g, "\\'")}');">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy
+          <button class="btn-action-sm" onclick="copyPrompt(this, '${agentMsgId}')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> <span class="copy-label">Copy</span>
           </button>
         </div>
       </div>
@@ -242,14 +336,12 @@ async function submitAgentTask() {
   agentSubmit.disabled = true;
 
   // 2. Render Loading Agent Bubble with Assistant-UI Tool Accordion
-  const agentMsgId = `agent-msg-${Date.now()}`;
   const loadingHtml = `
     <div class="chat-message agent" id="${agentMsgId}">
-      <div class="message-avatar">EM</div>
       <div class="message-content" style="width: 100%;">
         <div class="message-meta">
           <span>EDGEMIND</span>
-          <span class="model-chip" id="chip-${agentMsgId}">qwen2.5:1.5b</span>
+          <span class="model-chip" id="chip-${agentMsgId}">Selecting...</span>
           <span>• ${now}</span>
         </div>
         <div class="message-body" id="body-${agentMsgId}" style="padding-bottom: 4px;">
@@ -334,8 +426,18 @@ async function submitAgentTask() {
     // Parse Markdown Response
     const contentBox = document.getElementById(`content-${agentMsgId}`);
     contentBox.style.display = 'block';
+
+    const chip = document.getElementById(`chip-${agentMsgId}`);
+    if (chip) chip.textContent = data.model_used || 'Unknown';
+
+    const activeBadge = document.getElementById('active-model-badge');
+    if (activeBadge && data.model_used) {
+      activeBadge.textContent = data.model_used;
+    }
     
     let outputText = data.final_output || 'Task execution completed.';
+    window._responseCache[agentMsgId] = outputText;
+
     let outputHtml = formatMarkdown(outputText);
 
     // Inline Generative Artifact Card (assistant-ui style)
@@ -363,16 +465,10 @@ async function submitAgentTask() {
     // Assistant-UI Message Actions
     outputHtml += `
       <div class="message-actions" style="margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border-subtle);">
-        <button class="btn-action-sm">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+        <button class="btn-action-sm" onclick="copyAgentText(this, '${agentMsgId}')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> <span class="copy-label">Copy</span>
         </button>
-        <button class="btn-action-sm">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
-        </button>
-        <button class="btn-action-sm" onclick="navigator.clipboard.writeText('${escapeHtml(outputText).replace(/'/g, "\\'")}');">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy
-        </button>
-        <button class="btn-action-sm" title="Regenerate">
+        <button class="btn-action-sm" onclick="retryPrompt('${agentMsgId}')" title="Regenerate">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg> Retry
         </button>
       </div>
@@ -388,7 +484,7 @@ async function submitAgentTask() {
     if (data.steps && data.steps.length > 0) {
       document.getElementById('trace-list').innerHTML = data.steps.map(s => `
         <div class="trace-step-item">
-          <span class="trace-step-icon">✓</span>
+          <span class="trace-step-icon" style="color:${s.success ? 'var(--success)' : 'var(--danger)'}">${s.success ? '✓' : '✗'}</span>
           <div class="trace-step-main">
             <div class="trace-step-title">${escapeHtml(s.action || s.tool || 'Step')}</div>
             <div class="trace-step-sub">${escapeHtml(s.tool ? `Tool: ${s.tool}` : 'Reasoning / synthesis')}</div>
@@ -414,8 +510,17 @@ async function submitAgentTask() {
       gBadge.textContent = `${score}% SCORE`;
       gBadge.className = score >= 50 ? 'tag-pill success' : 'tag-pill danger';
     }
+    const valSchema = document.getElementById('val-schema');
+    if (valSchema) {
+      const schemaOk = !(data.validation_report && data.validation_report.failure_reason && data.validation_report.failure_reason.includes('schema'));
+      valSchema.textContent = schemaOk ? '✓ pass' : '✗ fail';
+      valSchema.style.color = schemaOk ? '' : 'var(--danger)';
+    }
     const valGrounding = document.getElementById('val-grounding');
-    if (valGrounding) valGrounding.textContent = data.validation_passed ? '✓ verified' : '✓ pass';
+    if (valGrounding) {
+      valGrounding.textContent = data.validation_passed ? '✓ verified' : '⚠ failed';
+      valGrounding.style.color = data.validation_passed ? '' : 'var(--warning)';
+    }
     const valRisk = document.getElementById('val-risk');
     if (valRisk) valRisk.textContent = score >= 80 ? 'Low' : score >= 50 ? 'Medium' : 'High';
     const valRetries = document.getElementById('val-retries');
@@ -425,8 +530,28 @@ async function submitAgentTask() {
     let citations = [];
     if (data.steps) {
       data.steps.forEach(s => {
-        if (s.tool === 'rag_search' && s.result) citations.push('RAG Knowledge Search');
-        if ((s.tool === 'analyze_scanned_document' || s.tool === 'run_ocr') && s.result) citations.push('Visual Evidence / OCR');
+        if (s.tool === 'rag_search' && s.output) {
+          const docIdRegex = /\(Doc: ([a-f0-9\-]+)\)/g;
+          let match;
+          let foundDocs = new Set();
+          
+          while ((match = docIdRegex.exec(s.output)) !== null) {
+            const docId = match[1];
+            const docObj = allDocuments.find(d => d.id === docId);
+            if (docObj) {
+              foundDocs.add(docObj.filename);
+            } else {
+              foundDocs.add(`Document ${docId.substring(0, 8)}`);
+            }
+          }
+          
+          if (foundDocs.size > 0) {
+            foundDocs.forEach(name => citations.push(name));
+          } else {
+            citations.push('RAG Knowledge Search');
+          }
+        }
+        if ((s.tool === 'analyze_scanned_document' || s.tool === 'run_ocr') && s.output) citations.push('Visual Evidence / OCR');
       });
     }
     const evCount = document.getElementById('evidence-count');
@@ -470,7 +595,7 @@ async function submitAgentTask() {
         ${escapeHtml(err.message)}
       </div>
       <div class="message-actions" style="margin-top:12px; border-top:1px solid var(--border-subtle); padding-top:8px;">
-        <button class="btn-action-sm" title="Regenerate">
+        <button class="btn-action-sm" onclick="retryPrompt('${agentMsgId}')" title="Regenerate">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg> Retry
         </button>
       </div>

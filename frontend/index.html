@@ -68,6 +68,28 @@
     overflow: hidden;
   }
 
+  /* Scrollbar Styling */
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--border-active);
+    border-radius: 10px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-muted);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-active) transparent;
+  }
+
   ::selection { background: rgba(228, 228, 231, 0.2); color: #fff; }
   a { color: inherit; text-decoration: none; }
   button, input, textarea { font-family: inherit; font-size: inherit; color: inherit; }
@@ -483,30 +505,6 @@
     flex-direction: row-reverse;
   }
   .chat-message.agent { align-self: flex-start; }
-
-  .message-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: var(--radius-full);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-family: var(--font-mono);
-    font-weight: 600;
-    flex-shrink: 0;
-  }
-  .chat-message.user .message-avatar {
-    background: var(--panel-elevated);
-    border: 1px solid var(--border);
-    color: var(--text-primary);
-  }
-  .chat-message.agent .message-avatar {
-    background: linear-gradient(135deg, #3f3f46 0%, #18181b 100%);
-    color: #fff;
-    border: 1px solid var(--border-active);
-    box-shadow: 0 0 12px rgba(255, 255, 255, 0.05);
-  }
 
   .message-content {
     display: flex;
@@ -948,53 +946,103 @@
   }
   .data-table tr:hover td { background: var(--panel-hover); color: var(--text-primary); }
 
-  /* Login Overlay Modal */
-  .login-overlay {
+  /* Login Screen Redesign */
+  .login-screen {
     position: fixed;
     inset: 0;
-    background: rgba(9, 9, 11, 0.85);
-    backdrop-filter: blur(16px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-  }
-  .login-card {
-    width: 380px;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 28px;
-    box-shadow: var(--shadow-lg);
+    background: var(--bg);
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    z-index: 100;
   }
-  .login-header { text-align: center; margin-bottom: 8px; }
-  .login-logo {
-    width: 44px;
-    height: 44px;
-    border-radius: var(--radius);
-    background: linear-gradient(135deg, #3f3f46 0%, #18181b 100%);
-    color: #fff;
-    font-size: 18px;
-    font-weight: 700;
+  .login-header-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 40px;
+    font-size: 13px;
+    font-family: var(--font-sans);
+    color: var(--text-muted);
+  }
+  .login-header-nav .brand {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+  .login-nav-center {
+    display: flex;
+    gap: 32px;
+  }
+  .login-nav-center a.active {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+  .login-main {
+    flex: 1;
+    display: flex;
+    border-top: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .login-left, .login-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .login-left {
+    border-right: 1px solid var(--border-subtle);
+    padding: 60px 80px;
+    align-items: flex-start;
+  }
+  .login-hero-content {
+    max-width: 480px;
+  }
+  .login-hero-title {
+    font-size: 42px;
+    font-weight: 600;
+    line-height: 1.1;
+    color: var(--text-primary);
+    margin-bottom: 20px;
+    letter-spacing: -0.5px;
+  }
+  .login-hero-sub {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+  .login-right {
+    align-items: center;
+  }
+  .login-form-container {
+    width: 100%;
+    max-width: 380px;
+  }
+  .login-divider {
     display: flex;
     align-items: center;
-    justify-content: center;
-    margin: 0 auto 12px;
-    border: 1px solid var(--border-active);
-    box-shadow: 0 0 20px rgba(255, 255, 255, 0.05);
+    text-align: center;
+    margin: 24px 0 8px;
+    color: var(--border-active);
   }
-  .login-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text-primary);
+  .login-divider::before, .login-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid var(--border-subtle);
   }
-  .login-subtitle {
-    font-size: 12.5px;
+  .login-divider span {
+    padding: 0 10px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+  }
+  .login-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 40px;
+    font-size: 12px;
     color: var(--text-muted);
-    margin-top: 4px;
+  }
+  .login-footer a:hover {
+    color: var(--text-primary);
   }
   .form-group { display: flex; flex-direction: column; gap: 6px; }
   .form-label {
@@ -1147,7 +1195,7 @@
       <div class="topbar-actions">
         <div class="badge-pill active">
           <span class="status-dot"></span>
-          <span id="active-model-badge">qwen2.5:1.5b • Ollama</span>
+          <span id="active-model-badge">Loading models...</span>
         </div>
         <button class="icon-button" id="refresh-all-btn" title="Refresh data">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
@@ -1291,7 +1339,7 @@
 
       <!-- ================= PAGE 2: KNOWLEDGE LIBRARY ================= -->
       <section class="page-view" id="page-knowledge">
-        <div class="table-panel">
+        <div class="table-panel" style="height: 100%;">
           <div class="table-panel-header">
             <div>
               <h2 style="font-size:16px;font-weight:600;">RAG Knowledge Documents</h2>
@@ -1306,7 +1354,7 @@
               </button>
             </div>
           </div>
-          <div style="padding:16px;" id="knowledge-list">
+          <div style="padding:16px; overflow-y: auto; flex: 1;" id="knowledge-list">
             <!-- Dynamic documents list -->
           </div>
         </div>
@@ -1314,14 +1362,14 @@
 
       <!-- ================= PAGE 3: DELIVERABLES / ARTIFACTS ================= -->
       <section class="page-view" id="page-artifacts">
-        <div class="table-panel">
+        <div class="table-panel" style="height: 100%;">
           <div class="table-panel-header">
             <div>
               <h2 style="font-size:16px;font-weight:600;">Generated Deliverables</h2>
               <p style="font-size:12px;color:var(--text-muted);margin-top:2px;" id="artifact-count-eyebrow">DOCX, XLSX, PDF files created by EdgeMind</p>
             </div>
           </div>
-          <div style="padding:16px;" id="artifacts-list">
+          <div style="padding:16px; overflow-y: auto; flex: 1;" id="artifacts-list">
             <!-- Dynamic artifacts list -->
           </div>
         </div>
@@ -1329,14 +1377,14 @@
 
       <!-- ================= PAGE 4: AUDIT TRAIL ================= -->
       <section class="page-view" id="page-audit">
-        <div class="table-panel">
+        <div class="table-panel" style="height: 100%;">
           <div class="table-panel-header">
             <div>
               <h2 style="font-size:16px;font-weight:600;">Cryptographic Audit Trail</h2>
               <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">Tamper-evident hash-chained logs</p>
             </div>
           </div>
-          <div style="overflow-x:auto;">
+          <div style="overflow-x: auto; overflow-y: auto; flex: 1;">
             <table class="data-table">
               <thead>
                 <tr>
@@ -1358,50 +1406,27 @@
 
       <!-- ================= PAGE 5: NODE SETTINGS ================= -->
       <section class="page-view" id="page-settings">
-        <div class="table-panel">
+        <div class="table-panel" style="height: 100%;">
           <div class="table-panel-header">
             <div>
               <h2 style="font-size:16px;font-weight:600;">Model Registry</h2>
               <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">Local Ollama models configured on this node</p>
             </div>
           </div>
-          <div style="overflow-x:auto;">
+          <div style="overflow-x: auto; overflow-y: auto; flex: 1;">
             <table class="data-table">
               <thead>
                 <tr>
                   <th>Model ID</th>
                   <th>Modality</th>
-                  <th>Role</th>
-                  <th>Quantization</th>
+                  <th>Capabilities</th>
+                  <th>VRAM</th>
                   <th>Status</th>
                   <th>Integrity</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr>
-                  <td style="font-family:var(--font-mono);color:var(--text-primary);font-weight:500;">qwen2.5:1.5b</td>
-                  <td>Reasoning</td>
-                  <td style="font-family:var(--font-mono);">General / RAG</td>
-                  <td style="font-family:var(--font-mono);">Q4_K_M</td>
-                  <td><span class="status-indicator"><span class="status-dot"></span>active</span></td>
-                  <td style="color:var(--success);">✓ verified</td>
-                </tr>
-                <tr>
-                  <td style="font-family:var(--font-mono);color:var(--text-primary);font-weight:500;">qwen2.5-coder:1.5b</td>
-                  <td>Coding / Structuring</td>
-                  <td style="font-family:var(--font-mono);">Artifact Generation</td>
-                  <td style="font-family:var(--font-mono);">Q4_K_M</td>
-                  <td><span class="status-indicator"><span class="status-dot"></span>active</span></td>
-                  <td style="color:var(--success);">✓ verified</td>
-                </tr>
-                <tr>
-                  <td style="font-family:var(--font-mono);color:var(--text-primary);font-weight:500;">llava</td>
-                  <td>Vision / OCR</td>
-                  <td style="font-family:var(--font-mono);">Image Extraction</td>
-                  <td style="font-family:var(--font-mono);">Q4_0</td>
-                  <td><span class="status-indicator"><span class="status-dot"></span>active</span></td>
-                  <td style="color:var(--success);">✓ verified</td>
-                </tr>
+              <tbody id="models-body">
+                <!-- Dynamic model rows -->
               </tbody>
             </table>
           </div>
@@ -1412,24 +1437,76 @@
   </main>
 </div>
 
-<!-- LOGIN MODAL -->
-<div class="login-overlay" id="login">
-  <div class="login-card">
-    <div class="login-header">
-      <div class="login-logo">EM</div>
-      <h2 class="login-title">EdgeMind Sovereign AI</h2>
-      <p class="login-subtitle">Air-gapped Agentic Workbench</p>
+<!-- LOGIN SCREEN -->
+<div class="login-screen" id="login">
+  <header class="login-header-nav">
+    <div class="brand">
+      <span class="status-dot success"></span> EdgeMind
     </div>
-    <div class="form-group">
-      <label class="form-label">Username</label>
-      <input type="text" class="form-input" id="login-username" value="operator" placeholder="Username" />
+    <nav class="login-nav-center">
+      <a href="#" class="active">Sign in</a>
+      <a href="#">Overview</a>
+      <a href="#">Documentation</a>
+    </nav>
+    <div class="login-nav-right">
+      <a href="#">System Status</a>
     </div>
-    <div class="form-group">
-      <label class="form-label">Password</label>
-      <input type="password" class="form-input" id="login-password" value="kavach123" placeholder="Password" />
+  </header>
+
+  <main class="login-main">
+    <div class="login-left">
+      <div class="login-hero-content">
+        <div style="margin-bottom:20px; display:flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:10.5px; letter-spacing:1px; color:var(--text-muted); text-transform:uppercase; font-weight:500;">
+          <span style="width:6px; height:6px; border-radius:50%; background:#10b981;"></span>
+          Air-Gapped Ready
+        </div>
+        <h1 class="login-hero-title">Private, on-device<br/>intelligence.</h1>
+        <p class="login-hero-sub">Run state-of-the-art models entirely within your isolated<br/>hardware perimeter. No telemetry, no external<br/>dependancies.</p>
+      </div>
     </div>
-    <button class="btn-primary-block" id="enter-workspace-btn">Enter Workspace</button>
-  </div>
+    
+    <div class="login-right">
+      <div class="login-form-container">
+        <div style="margin-bottom: 28px;">
+          <h2 style="font-size: 20px; font-weight: 500; margin-bottom: 8px;">Sign in</h2>
+          <p style="color: var(--text-muted); font-size: 13px;">Enter your operator details to access the local console.</p>
+        </div>
+        
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label" style="font-size:12px; color:var(--text-secondary); margin-bottom:6px; display:block;">Email</label>
+          <input type="text" class="form-input" id="login-username" value="operator" placeholder="name@domain.com" style="background:transparent; border-color:var(--border-subtle); padding:10px 12px;" />
+        </div>
+        
+        <div class="form-group" style="margin-bottom:16px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+            <label class="form-label" style="font-size:12px; color:var(--text-secondary);">Password</label>
+            <a href="#" style="font-size:11.5px; color:var(--text-muted);">Forgot?</a>
+          </div>
+          <input type="password" class="form-input" id="login-password" value="kavach123" placeholder="••••••••" style="background:transparent; border-color:var(--border-subtle); padding:10px 12px;" />
+        </div>
+        
+        <button id="enter-workspace-btn" style="background: var(--text-primary); color: var(--bg); border:none; width:100%; height:40px; border-radius:4px; font-weight:500; font-size:13.5px; margin-top:8px; cursor:pointer;">Sign in</button>
+        
+        <div class="login-divider">
+          <span>or</span>
+        </div>
+        
+        <button style="display:flex; align-items:center; justify-content:center; gap:8px; width:100%; height:40px; background:transparent; border:1px solid var(--border-subtle); border-radius:4px; font-weight:500; font-size:13px; color:var(--text-primary); cursor:not-allowed; margin-top:12px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+          Sign in with Passkey
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <footer class="login-footer">
+    <div>© 2025 EdgeMind</div>
+    <div style="display:flex; gap:24px;">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Support</a>
+    </div>
+  </footer>
 </div>
 
 <script src="app.js"></script>

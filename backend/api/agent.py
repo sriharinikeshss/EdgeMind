@@ -57,9 +57,28 @@ class AgentResponse(BaseModel):
     validation_report: dict | None = None
     retry_count: int = 0
     artifacts: list[dict] = []
+    model_used: str | None = None
 
 
 from api.auth import get_current_user, UserInfo
+from models.registry import registry
+
+@router.get("/models")
+def list_models():
+    models_list = []
+    for model_id, info in registry.models.items():
+        # verify hash status
+        hash_info = registry.verify_model_hash(model_id)
+        models_list.append({
+            "id": model_id,
+            "modality": ", ".join(info.get("modality", [])),
+            "capabilities": ", ".join(info.get("capabilities", [])),
+            "vram_gb": info.get("vram_gb"),
+            "verified": hash_info.get("verified", False),
+            "status": "active" if registry.check_vram_capacity(model_id) else "insufficient_vram"
+        })
+    return models_list
+
 
 @router.post("/agent", response_model=AgentResponse)
 def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -323,6 +342,7 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
             validation_report=validation_report,
             retry_count=retry_count,
             artifacts=artifacts_list,
+            model_used=model_id,
         )
 
     except Exception as exc:
