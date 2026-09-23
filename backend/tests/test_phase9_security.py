@@ -136,11 +136,11 @@ def test_admin_can_delete_document():
 
 
 def test_sovereignty_report_requires_admin():
-    app.dependency_overrides[get_current_user] = _as("operator")
+    app.dependency_overrides[get_current_user] = _as("analyst")
     resp = client.get("/api/sovereignty/report")
     assert resp.status_code == 403
 
-    app.dependency_overrides[get_current_user] = _as("admin")
+    app.dependency_overrides[get_current_user] = _as("operator")
     resp = client.get("/api/sovereignty/report")
     assert resp.status_code == 200
 
@@ -285,6 +285,15 @@ def test_verify_no_egress_returns_expected_shape():
     result = verify_no_egress(timeout=1.0)
     assert "egress_blocked" in result and isinstance(result["egress_blocked"], bool)
     assert "probe" in result
+    assert result.get("scope") == "container"
+
+
+def test_enforce_airgap_isolation_returns_expected_shape():
+    from security.sovereignty import enforce_airgap_isolation
+    result = enforce_airgap_isolation()
+    assert "enforced" in result and isinstance(result["enforced"], bool)
+    assert "method" in result
+    assert "detail" in result
 
 
 def test_monitor_network_events_returns_expected_shape():

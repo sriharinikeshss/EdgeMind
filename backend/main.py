@@ -40,6 +40,15 @@ def on_startup():
     create_tables()
     logger.info("DB ready.")
 
+    import os
+    if os.getenv("ENFORCE_AIRGAP", "true").lower() in ("true", "1", "yes"):
+        try:
+            from security.sovereignty import enforce_airgap_isolation
+            res = enforce_airgap_isolation()
+            logger.info(f"Air-gap isolation enforcement result: {res}")
+        except Exception as exc:
+            logger.warning(f"Could not enforce air-gap isolation on startup: {exc}")
+
 
 @app.get("/health")
 def health_check():
