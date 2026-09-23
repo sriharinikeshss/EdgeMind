@@ -265,12 +265,46 @@ class Planner:
             )
         ]
 
+    # Below this many words, a prompt is short enough that it can't really
+    # carry a multi-step task anyway — see generate_plan()'s short-circuit.
+    _TRIVIAL_WORD_LIMIT = 4
+
     def generate_plan(self, task_id: str, description: str, file_attachments: list[str] | None = None) -> ExecutionPlan:
         """
         Phase 3/5: call reasoning model to produce a structured step plan DAG.
         Falls back to intelligent rule-based multi-step plan if model is unavailable.
         """
         from models.registry import registry
+
+        # Trivial-prompt short-circuit: skip the JSON-planning call for a
+        # very short, no-attachment message — "hi", "thanks", "helloo",
+        # etc. Sending something this short through the full planner system
+        # prompt (9 tools + multiple "MUST" rule blocks) let a small model
+        # latch onto and echo the instructions themselves instead of the
+        # near-absent actual task — confirmed live: "hi" produced an essay
+        # about the "Anti-Hallucination Rule" plus an unrequested generated
+        # artifact, because the planner's own hallucinated step "action"
+        # text (echoing the system prompt) became the execution-time prompt
+        # (see Executor.execute_step's step.action fallback).
+        #
+        # Word count alone isn't quite enough, though: "Do the crash task"
+        # is only 4 words. classify_task()/determine_required_outputs() are
+        # the same deterministic keyword checks already used elsewhere in
+        # this function (not something new invented for this check) — they
+        # keep a short CODING/VISION/RAG/artifact request ("Calculate 5+5",
+        # "Search the SOP") from being short-circuited into a plain answer,
+        # while still catching plain chit-chat and every typo/phrasing of
+        # it without needing a hand-maintained word list.
+        if (
+            not file_attachments
+            and len(description.split()) < self._TRIVIAL_WORD_LIMIT
+            and self.classify_task(description) == "REASONING"
+            and not self.determine_required_outputs(description)
+        ):
+            return ExecutionPlan(task_id=task_id, steps=[
+                PlanStep(step_id="step_1", action=description, tool="direct_llm",
+                          depends_on=[], params={"prompt": description}),
+            ])
 
         attachment_ctx = f"\n\nAttached files for reference: {', '.join(file_attachments)}\n" if file_attachments else ""
         prompt = f"{_PLAN_SYSTEM_PROMPT}{attachment_ctx}\n\nUser task:\n{description}"
@@ -307,6 +341,20 @@ class Planner:
                     if is_pdf:
                         s.tool = "read_file"
                     elif not has_vision:
+                        s.tool = "direct_llm"
+
+            # Symmetric guard for artifact tools (same pattern as the vision
+            # guard above): determine_required_outputs() was previously only
+            # used to ADD a missing generate_* step, never to remove one the
+            # LLM invented on its own initiative — small models shown a menu
+            # of impressive-sounding tools will sometimes use one unprompted.
+            # Confirmed live: a plain request produced an unrequested
+            # Approval_Note.docx. If no deliverable was actually asked for,
+            # demote any generate_* step back to a normal answer.
+            from tools.registry import ARTIFACT_TOOL_NAMES
+            if not self.determine_required_outputs(description):
+                for s in steps:
+                    if s.tool in ARTIFACT_TOOL_NAMES:
                         s.tool = "direct_llm"
         except Exception as exc:
             logger.info("Plan generation using intelligent fallback (%s)", exc)

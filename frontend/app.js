@@ -1,21 +1,25 @@
 /**
- * EdgeMind Sovereign Agentic Workbench — Frontend Integration
- * Connects UI with FastAPI Backend (Tasks, RAG Documents, Artifacts, Audit, Validation)
+ * EdgeMind Sovereign Agentic Workbench — Assistant-UI Design Implementation
+ * Connects frontend with FastAPI Backend (/api/agent, /api/documents, /api/artifacts, /api/audit, /api/sovereignty)
  */
 
 let token = '';
 let currentUser = { username: 'operator', role: 'operator' };
 const API = 'http://localhost:8000/api';
 
-// Cached data
+// Cached Data
 let allDocuments = [];
 let allArtifacts = [];
 let attachedFileBase64 = null;
 let attachedFileName = '';
 
 // Icons
-const iconDoc = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>`;
-const iconDownload = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v13m0 0-4-4m4 4 4-4M5 21h14"/></svg>`;
+const iconDoc = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`;
+const iconImage = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+const iconPDF = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M10 18v-6"/><path d="M10 12h3a2 2 0 1 1 0 4h-3"/></svg>`;
+const iconDownload = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+const iconCheck = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`;
+const iconCopy = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
 
 function getHeaders(extra = {}) {
   const h = { ...extra };
@@ -23,7 +27,7 @@ function getHeaders(extra = {}) {
   return h;
 }
 
-// ---------------- AUTH / LOGIN ----------------
+// ---------------- AUTHENTICATION ----------------
 async function doLogin() {
   const user = document.getElementById('login-username').value.trim();
   const pass = document.getElementById('login-password').value.trim();
@@ -46,7 +50,7 @@ async function doLogin() {
       token = data.access_token;
       currentUser = { username: data.username, role: data.role };
 
-      // Update user display
+      // Update user details
       document.getElementById('current-user-name').textContent = data.username.charAt(0).toUpperCase() + data.username.slice(1);
       document.getElementById('current-user-role').textContent = `Role: ${data.role}`;
       document.getElementById('current-user-avatar').textContent = data.username.substring(0, 2).toUpperCase();
@@ -54,12 +58,13 @@ async function doLogin() {
 
       // Hide login overlay
       const login = document.getElementById('login');
-      login.style.transition = 'opacity .35s ease';
+      login.style.transition = 'opacity 0.3s ease';
       login.style.opacity = '0';
-      setTimeout(() => { login.style.display = 'none'; }, 350);
+      setTimeout(() => { login.style.display = 'none'; }, 300);
 
-      // Load initial data
+      // Load initial state
       loadAllData();
+      fetchSovereignty();
     } else {
       let errDetail = 'Login failed';
       try {
@@ -67,11 +72,11 @@ async function doLogin() {
         if (err.detail) errDetail = err.detail;
       } catch (_) {}
       alert(`Authentication failed: ${errDetail}`);
-      btn.textContent = 'Enter workspace';
+      btn.textContent = 'Sign in';
     }
   } catch (e) {
     alert(`Error connecting to backend (${API}): ${e.message}`);
-    btn.textContent = 'Enter workspace';
+    btn.textContent = 'Sign in';
   }
 }
 
@@ -79,21 +84,20 @@ document.getElementById('enter-workspace-btn').addEventListener('click', doLogin
 document.getElementById('login-username')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
 document.getElementById('login-password')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
 
-// Sign out
 document.getElementById('signout-btn').addEventListener('click', () => {
   token = '';
   const login = document.getElementById('login');
   login.style.display = 'flex';
   login.style.opacity = '1';
-  document.getElementById('enter-workspace-btn').textContent = 'Enter workspace';
+  document.getElementById('enter-workspace-btn').textContent = 'Sign in';
 });
 
 // ---------------- NAVIGATION ----------------
 const crumbEl = document.getElementById('crumb');
-const labels = {
+const navLabels = {
   workspace: 'AGENT WORKSPACE',
   knowledge: 'KNOWLEDGE LIBRARY',
-  artifacts: 'ARTIFACTS',
+  artifacts: 'DELIVERABLES',
   audit: 'AUDIT TRAIL',
   settings: 'NODE SETTINGS'
 };
@@ -103,32 +107,28 @@ document.querySelectorAll('.nav-item').forEach(item => {
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
     item.classList.add('active');
     const page = item.dataset.page;
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
     const targetPage = document.getElementById('page-' + page);
     if (targetPage) targetPage.classList.add('active');
-    crumbEl.textContent = labels[page] || 'WORKBENCH';
+    crumbEl.textContent = navLabels[page] || 'WORKBENCH';
 
     if (page === 'knowledge') loadDocuments();
       fetchSovereignty();
     if (page === 'artifacts') loadArtifacts();
     if (page === 'audit') loadAuditLogs();
+    fetchSovereignty();
   });
 });
 
-// Settings tabs
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    const targetTab = document.getElementById('tab-' + btn.dataset.tab);
-    if (targetTab) targetTab.classList.add('active');
-  });
-});
-
-// Refresh button
-document.getElementById('refresh-all-btn')?.addEventListener('click', () => {
+document.getElementById('refresh-all-btn')?.addEventListener('click', function() {
   loadAllData();
+  fetchSovereignty();
+  const svg = this.querySelector('svg');
+  if (svg) {
+    svg.style.transition = 'transform 0.5s ease';
+    svg.style.transform = `rotate(${svg.dataset.rot ? parseInt(svg.dataset.rot) + 360 : 360}deg)`;
+    svg.dataset.rot = svg.dataset.rot ? parseInt(svg.dataset.rot) + 360 : 360;
+  }
 });
 
 function loadAllData() {
@@ -136,9 +136,107 @@ function loadAllData() {
       fetchSovereignty();
   loadArtifacts();
   loadAuditLogs();
+  fetchSovereignty();
+  loadModels();
 }
 
-// ---------------- AGENT WORKSPACE / CHAT ----------------
+async function loadModels() {
+  try {
+    const res = await fetch(`${API}/models`, { headers: getHeaders() });
+    if (res.ok) {
+      const models = await res.json();
+      renderModels(models);
+      if (models.length > 0) {
+        const badge = document.getElementById('active-model-badge');
+        if (badge && badge.textContent === 'Loading models...') {
+          badge.textContent = `${models[0].id}`;
+        }
+      }
+    } else {
+      document.getElementById('models-body').innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-faint);padding:24px;">Failed to load models.</td></tr>`;
+    }
+  } catch (e) {
+    document.getElementById('models-body').innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-faint);padding:24px;">Network error loading models.</td></tr>`;
+  }
+}
+
+function renderModels(models) {
+  const tbody = document.getElementById('models-body');
+  if (!models || models.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-faint);padding:24px;">No models configured.</td></tr>`;
+    return;
+  }
+  
+  tbody.innerHTML = models.map(m => `
+    <tr>
+      <td style="font-family:var(--font-mono);color:var(--text-primary);font-weight:500;">${escapeHtml(m.id)}</td>
+      <td>${escapeHtml(m.modality)}</td>
+      <td style="font-family:var(--font-mono);font-size:11px;">${escapeHtml(m.capabilities)}</td>
+      <td style="font-family:var(--font-mono);">${m.vram_gb} GB</td>
+      <td><span class="status-indicator"><span class="status-dot"></span>${escapeHtml(m.status)}</span></td>
+      <td style="${m.verified ? 'color:var(--success);' : 'color:var(--warning);'}">${m.verified ? '✓ verified' : '⚠ unverified'}</td>
+    </tr>
+  `).join('');
+}
+
+// Global caches for chat actions
+window._promptCache = window._promptCache || {};
+window._responseCache = window._responseCache || {};
+
+window.editPrompt = function(id) {
+  const p = window._promptCache[id];
+  if (p) {
+    document.getElementById('agent-prompt').value = p;
+    document.getElementById('agent-prompt').focus();
+  }
+};
+
+window.copyPrompt = function(btn, id) {
+  const p = window._promptCache[id];
+  if (p) {
+    navigator.clipboard.writeText(p);
+    const label = btn.querySelector('.copy-label');
+    if (label) {
+      label.textContent = 'Copied!';
+      setTimeout(() => label.textContent = 'Copy', 2000);
+    }
+  }
+};
+
+window.copyAgentText = function(btn, id) {
+  const text = window._responseCache[id];
+  if (text) {
+    navigator.clipboard.writeText(text);
+    const label = btn.querySelector('.copy-label');
+    if (label) {
+      label.textContent = 'Copied!';
+      setTimeout(() => label.textContent = 'Copy', 2000);
+    }
+  }
+};
+
+window.retryPrompt = function(id) {
+  const p = window._promptCache[id];
+  if (p) {
+    document.getElementById('agent-prompt').value = p;
+    submitAgentTask();
+  }
+};
+
+
+
+// ---------------- PROMPT SUGGESTIONS ----------------
+document.querySelectorAll('.suggestion-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    const prompt = pill.dataset.prompt;
+    if (prompt) {
+      document.getElementById('agent-prompt').value = prompt;
+      submitAgentTask();
+    }
+  });
+});
+
+// ---------------- MULTI-MODAL COMPOSER ----------------
 const agentFile = document.getElementById('agent-file');
 const agentUploadBtn = document.getElementById('agent-upload-btn');
 const uploadIndicatorBox = document.getElementById('upload-indicator-box');
@@ -158,7 +256,8 @@ agentFile.addEventListener('change', (e) => {
     reader.onload = (ev) => {
       attachedFileBase64 = ev.target.result;
       attachedFilenameSpan.textContent = file.name;
-      uploadIndicatorBox.style.display = 'block';
+      uploadIndicatorBox.style.display = 'flex';
+      agentPrompt.focus();
     };
     reader.readAsDataURL(file);
   }
@@ -171,6 +270,12 @@ removeFileBtn.addEventListener('click', () => {
   uploadIndicatorBox.style.display = 'none';
 });
 
+// Auto-expand textarea
+agentPrompt.addEventListener('input', () => {
+  agentPrompt.style.height = 'auto';
+  agentPrompt.style.height = Math.min(agentPrompt.scrollHeight, 140) + 'px';
+});
+
 agentPrompt.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
@@ -180,6 +285,9 @@ agentPrompt.addEventListener('keydown', (e) => {
 
 agentSubmit.addEventListener('click', submitAgentTask);
 
+
+
+// ---------------- AGENT SUBMIT & EXECUTION ----------------
 async function submitAgentTask() {
   const prompt = agentPrompt.value.trim();
   if (!prompt && !attachedFileBase64) return;
@@ -187,49 +295,82 @@ async function submitAgentTask() {
   const currentFileBase64 = attachedFileBase64;
   const currentFileName = attachedFileName;
 
-  // Clear inputs
+  // Reset inputs
   agentPrompt.value = '';
+  agentPrompt.style.height = '24px';
   attachedFileBase64 = null;
   attachedFileName = '';
   agentFile.value = '';
   uploadIndicatorBox.style.display = 'none';
 
-  // Remove empty state if present
+  // Remove empty state
   const emptyState = document.getElementById('chat-empty-state');
   if (emptyState) emptyState.remove();
 
-  // 1. Append User Message
+  // 1. Render User Message Bubble with Assistant-UI actions
   const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const agentMsgId = `agent-msg-${Date.now()}`;
+  window._promptCache[agentMsgId] = prompt || 'Analyze attached document';
+
   const userHtml = `
-    <div class="chat-msg user">
-      <div class="avatar">${currentUser.username.substring(0, 2).toUpperCase()}</div>
-      <div class="chat-body">
-        <div class="chat-meta">YOU · ${now}</div>
-        ${currentFileName ? `<div class="file-badge"><span>📎</span><span>${currentFileName}</span></div>` : ''}
-        <div class="chat-text">${escapeHtml(prompt || 'Analyze attached file')}</div>
+    <div class="chat-message user">
+      <div class="message-content">
+        <div class="message-meta">YOU • ${now}</div>
+        <div class="message-body">
+          ${currentFileName ? `<div class="chat-attachment-pill">📎 ${escapeHtml(currentFileName)}</div><br/>` : ''}
+          ${escapeHtml(prompt || 'Analyze attached document')}
+        </div>
+        <div class="message-actions" style="justify-content: flex-end;">
+          <button class="btn-action-sm" onclick="editPrompt('${agentMsgId}')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Edit
+          </button>
+          <button class="btn-action-sm" onclick="copyPrompt(this, '${agentMsgId}')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> <span class="copy-label">Copy</span>
+          </button>
+        </div>
       </div>
     </div>
   `;
   chatMessages.insertAdjacentHTML('beforeend', userHtml);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
-  // Update Workspace Status
-  document.getElementById('task-status-badge').textContent = 'EXECUTING';
-  document.getElementById('task-status-badge').className = 'tag vision';
+  // Update Status
   document.getElementById('trace-pill').textContent = 'RUNNING';
-  document.getElementById('trace-pill').className = 'pill';
+  document.getElementById('trace-pill').className = 'tag-pill accent';
   agentSubmit.disabled = true;
-  document.getElementById('btn-text').textContent = 'Running...';
 
-  // Temporary Agent Loading Bubble
-  const agentMsgId = `agent-msg-${Date.now()}`;
+  // 2. Render Loading Agent Bubble with Assistant-UI Tool Accordion
   const loadingHtml = `
-    <div class="chat-msg agent" id="${agentMsgId}">
-      <div class="avatar">EM</div>
-      <div class="chat-body">
-        <div class="chat-meta">EDGEMIND · ${now} &nbsp; LOCAL AGENTIC REASONING<span id="agent-model-${agentMsgId}" style="color:var(--primary);"></span></div>
-        <div class="chat-text" style="display:flex;align-items:center;gap:8px;color:var(--text-dim);">
-          <span class="spinner"></span> Orchestrating plan, invoking tools &amp; synthesizing findings...
+    <div class="chat-message agent" id="${agentMsgId}">
+      <div class="message-content" style="width: 100%;">
+        <div class="message-meta">
+          <span>EDGEMIND</span>
+          <span class="model-chip" id="chip-${agentMsgId}">Selecting...</span>
+          <span>• ${now}</span>
+        </div>
+        <div class="message-body" id="body-${agentMsgId}" style="padding-bottom: 4px;">
+          
+          <!-- Assistant-UI Tool Call Accordion (Running State) -->
+          <div class="tool-call-accordion open" id="tool-${agentMsgId}">
+            <div class="tool-call-header" onclick="this.parentElement.classList.toggle('open')">
+              <div class="tool-name-tag">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                <span id="tool-name-${agentMsgId}">orchestrating_tools</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span class="tool-status-pill running" id="tool-status-${agentMsgId}">
+                  <span class="spinner-sm" style="width:10px;height:10px;border-width:1px;"></span> Running...
+                </span>
+                <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+              </div>
+            </div>
+            <div class="tool-call-body" id="tool-args-${agentMsgId}">
+              <span style="color:var(--text-faint);">Evaluating semantic space...</span>
+            </div>
+          </div>
+          
+          <div id="content-${agentMsgId}" style="margin-top:12px; display:none;"></div>
+
         </div>
       </div>
     </div>
@@ -237,161 +378,236 @@ async function submitAgentTask() {
   chatMessages.insertAdjacentHTML('beforeend', loadingHtml);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
-  // Update Trace panel
+  // Live trace list
   document.getElementById('trace-list').innerHTML = `
-    <div class="row-item">
-      <div class="row-icon" style="color:var(--warn);border-color:var(--warn);">◐</div>
-      <div class="row-main"><div class="row-title">Task Orchestration</div><div class="row-sub">Classifying &amp; decomposing prompt</div></div>
-      <div class="row-right" style="font-family:var(--mono);font-size:10px;color:var(--warn);">ACTIVE</div>
+    <div class="trace-step-item">
+      <span class="spinner-sm" style="color:var(--accent);margin-top:2px;"></span>
+      <div class="trace-step-main">
+        <div class="trace-step-title">Autonomous Orchestration</div>
+        <div class="trace-step-sub">Classifying intent & resolving DAG dependencies</div>
+      </div>
     </div>
   `;
 
-  // Payload
-  const payload = { prompt: prompt || 'Analyze attached document' };
-  if (currentFileBase64) {
-    payload.image_base64 = currentFileBase64;
-  }
-
+  // 3. API Call to execute task
   try {
+    const payload = { prompt: prompt || 'Analyze attached document' };
+    if (currentFileBase64) {
+      payload.image_base64 = currentFileBase64;
+    }
+
     const res = await fetch(`${API}/agent`, {
       method: 'POST',
-      headers: getHeaders({ 'Content-Type': 'application/json' }),
+      headers: { ...getHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
     const data = await res.json();
-    const agentMsgEl = document.getElementById(agentMsgId);
+    console.log("AGENT RESPONSE:", data);
+    agentSubmit.disabled = false;
+    document.getElementById('trace-pill').textContent = 'IDLE';
+    document.getElementById('trace-pill').className = 'tag-pill';
 
-    if (res.ok && data) {
-      // 2. Render Final Agent Output
-      let outputText = data.final_output || 'Task execution completed.';
-      let artifactsHtml = '';
+    // Finish Tool Execution Accordion
+    const toolStatus = document.getElementById(`tool-status-${agentMsgId}`);
+    if (toolStatus) {
+      toolStatus.className = 'tool-status-pill done';
+      toolStatus.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Completed`;
+    }
+    
+    const toolArgs = document.getElementById(`tool-args-${agentMsgId}`);
+    if (toolArgs && data.steps && data.steps.length > 0) {
+      const primaryTool = data.steps.find(s => s.tool) || data.steps[0];
+      document.getElementById(`tool-name-${agentMsgId}`).textContent = primaryTool.tool || primaryTool.action || 'synthesize_response';
+      toolArgs.innerHTML = `<pre style="margin:0;white-space:pre-wrap;background:transparent;"><code>${JSON.stringify(data.steps, null, 2)}</code></pre>`;
+    } else if (toolArgs) {
+      document.getElementById(`tool-name-${agentMsgId}`).textContent = 'synthesize_response';
+      toolArgs.innerHTML = `<pre style="margin:0;white-space:pre-wrap;background:transparent;"><code>{ "mode": "direct_answer" }</code></pre>`;
+    }
+    const toolContainer = document.getElementById(`tool-${agentMsgId}`);
+    if (toolContainer) toolContainer.classList.remove('open');
 
-      if (data.artifacts && data.artifacts.length > 0) {
-        artifactsHtml = `<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;">
-          ${data.artifacts.map(a => `
-            <button onclick="downloadArtifact('${a.id}', '${escapeHtml(a.filename)}')" class="btn primary btn-sm">
-              ${iconDownload} Download ${escapeHtml(a.filename)}
+    // Parse Markdown Response
+    const contentBox = document.getElementById(`content-${agentMsgId}`);
+    contentBox.style.display = 'block';
+
+    const chip = document.getElementById(`chip-${agentMsgId}`);
+    if (chip) chip.textContent = data.model_used || 'Unknown';
+
+    const activeBadge = document.getElementById('active-model-badge');
+    if (activeBadge && data.model_used) {
+      activeBadge.textContent = data.model_used;
+    }
+    
+    let outputText = data.final_output || 'Task execution completed.';
+    window._responseCache[agentMsgId] = outputText;
+
+    let outputHtml = formatMarkdown(outputText);
+
+    // Inline Generative Artifact Card (assistant-ui style)
+    if (data.artifacts && data.artifacts.length > 0) {
+      data.artifacts.forEach(a => {
+        outputHtml += `
+          <div class="message-deliverable-card">
+            <div class="deliverable-info">
+              <div class="deliverable-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              </div>
+              <div>
+                <div class="deliverable-title">${escapeHtml(a.filename)}</div>
+                <div class="deliverable-sub">Artifact Generated • Secure Node</div>
+              </div>
+            </div>
+            <button class="btn-download" onclick="window.open('${API}/artifacts/${a.id}/download?token=${token}', '_blank')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download
             </button>
-          `).join('')}
-        </div>`;
-      }
+          </div>
+        `;
+      });
+    }
+    
+    // Assistant-UI Message Actions
+    outputHtml += `
+      <div class="message-actions" style="margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border-subtle);">
+        <button class="btn-action-sm" onclick="copyAgentText(this, '${agentMsgId}')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> <span class="copy-label">Copy</span>
+        </button>
+        <button class="btn-action-sm" onclick="retryPrompt('${agentMsgId}')" title="Regenerate">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg> Retry
+        </button>
+      </div>
+    `;
 
-      agentMsgEl.querySelector('.chat-body').innerHTML = `
-        <div class="chat-meta">EDGEMIND · ${now} &nbsp; ${data.model_used || 'LOCAL MODEL'}</div>
-        <div class="chat-text">${formatMarkdown(outputText)}</div>
-        ${artifactsHtml}
+    contentBox.innerHTML = outputHtml;
+
+    // Refresh Data
+    loadAllData();
+    fetchSovereignty();
+    
+    // Final trace log
+    if (data.steps && data.steps.length > 0) {
+      document.getElementById('trace-list').innerHTML = data.steps.map(s => `
+        <div class="trace-step-item">
+          <span class="trace-step-icon" style="color:${s.success ? 'var(--success)' : 'var(--danger)'}">${s.success ? '✓' : '✗'}</span>
+          <div class="trace-step-main">
+            <div class="trace-step-title">${escapeHtml(s.action || s.tool || 'Step')}</div>
+            <div class="trace-step-sub">${escapeHtml(s.tool ? `Tool: ${s.tool}` : 'Reasoning / synthesis')}</div>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      document.getElementById('trace-list').innerHTML = `
+        <div class="trace-step-item">
+          <span class="trace-step-icon">✓</span>
+          <div class="trace-step-main">
+            <div class="trace-step-title">Execution Complete</div>
+            <div class="trace-step-sub">Synthesize response finished</div>
+          </div>
+        </div>
       `;
+    }
 
-      // 3. Render Steps in Live Trace
-      if (data.steps && data.steps.length > 0) {
-        document.getElementById('trace-list').innerHTML = data.steps.map(s => `
-          <div class="row-item">
-            <div class="row-icon" style="color:var(--accent);border-color:var(--accent);">✓</div>
-            <div class="row-main">
-              <div class="row-title">${escapeHtml(s.action || s.tool || 'Step')}</div>
-              <div class="row-sub">${escapeHtml(s.tool ? `Tool: ${s.tool}` : 'Reasoning / synthesis')}</div>
-            </div>
-            <div class="row-right" style="font-family:var(--mono);font-size:10px;color:var(--accent);">DONE</div>
-          </div>
-        `).join('');
-      }
+    // Telemetry Update
+    const score = data.grounding_score !== undefined ? Math.round(data.grounding_score * 100) : 96;
+    const gBadge = document.getElementById('grounding-score-badge');
+    if (gBadge) {
+      gBadge.textContent = `${score}% SCORE`;
+      gBadge.className = score >= 50 ? 'tag-pill success' : 'tag-pill danger';
+    }
+    const valSchema = document.getElementById('val-schema');
+    if (valSchema) {
+      const schemaOk = !(data.validation_report && data.validation_report.failure_reason && data.validation_report.failure_reason.includes('schema'));
+      valSchema.textContent = schemaOk ? '✓ pass' : '✗ fail';
+      valSchema.style.color = schemaOk ? '' : 'var(--danger)';
+    }
+    const valGrounding = document.getElementById('val-grounding');
+    if (valGrounding) {
+      valGrounding.textContent = data.validation_passed ? '✓ verified' : '⚠ failed';
+      valGrounding.style.color = data.validation_passed ? '' : 'var(--warning)';
+    }
+    const valRisk = document.getElementById('val-risk');
+    if (valRisk) valRisk.textContent = score >= 80 ? 'Low' : score >= 50 ? 'Medium' : 'High';
+    const valRetries = document.getElementById('val-retries');
+    if (valRetries) valRetries.textContent = `${data.retry_count || 0} / 3`;
 
-      // 4. Update Grounding & Validation Engine report
-      const score = data.grounding_score !== undefined ? Math.round(data.grounding_score * 100) : 96;
-      document.getElementById('grounding-score-badge').textContent = `${score}% SCORE`;
-      document.getElementById('grounding-score-badge').className = score >= 50 ? 'tag' : 'tag danger';
-      document.getElementById('val-schema').textContent = '✓ pass';
-      document.getElementById('val-grounding').textContent = data.validation_passed ? '✓ verified' : '✓ pass';
-      document.getElementById('val-risk').textContent = score >= 80 ? 'Low' : score >= 50 ? 'Medium' : 'High';
-      document.getElementById('val-retries').textContent = `${data.retry_count || 0} / 3`;
-
-      // 5. Update Workspace Deliverables list
-      if (data.artifacts && data.artifacts.length > 0) {
-        document.getElementById('workspace-artifact-count').textContent = data.artifacts.length;
-        document.getElementById('workspace-artifacts-list').innerHTML = data.artifacts.map(a => `
-          <div class="row-item" style="border:none;">
-            <div class="row-icon" style="color:var(--warn);">${iconDoc}</div>
-            <div class="row-main">
-              <div class="row-title">${escapeHtml(a.filename)}</div>
-              <div class="row-sub">Generated deliverable · hash verified</div>
-            </div>
-            <button onclick="downloadArtifact('${a.id}', '${escapeHtml(a.filename)}')" class="icon-btn" title="Download">${iconDownload}</button>
-          </div>
-        `).join('');
-      }
-
-      // 6. Update Evidence / Citations if RAG or Vision returned sources
-      let citations = [];
-      if (data.steps) {
-        data.steps.forEach(s => {
-          if (s.tool === 'rag_search' && s.result) {
-            try {
-              let parsed = typeof s.result === 'string' ? JSON.parse(s.result) : s.result;
-              // Check tool_data from backend
-              let toolData = s.tool_data || parsed;
-              if (toolData && toolData.citations) {
-                toolData.citations.forEach(cit => {
-                  citations.push({ 
-                    name: 'RAG Doc: ' + (cit.doc_id || 'Unknown').substring(0,25), 
-                    sub: cit.text ? cit.text.substring(0, 55) + '...' : 'Context retrieved', 
-                    tag: 'RAG' 
-                  });
-                });
-              } else {
-                citations.push({ name: 'RAG Knowledge Search', sub: 'Semantic context retrieved', tag: 'RAG' });
-              }
-            } catch (e) {
-               citations.push({ name: 'RAG Knowledge Search', sub: 'Semantic context retrieved', tag: 'RAG' });
+    // Evidence Update
+    let citations = [];
+    if (data.steps) {
+      data.steps.forEach(s => {
+        if (s.tool === 'rag_search' && s.output) {
+          const docIdRegex = /\(Doc: ([a-f0-9\-]+)\)/g;
+          let match;
+          let foundDocs = new Set();
+          
+          while ((match = docIdRegex.exec(s.output)) !== null) {
+            const docId = match[1];
+            const docObj = allDocuments.find(d => d.id === docId);
+            if (docObj) {
+              foundDocs.add(docObj.filename);
+            } else {
+              foundDocs.add(`Document ${docId.substring(0, 8)}`);
             }
           }
-          if ((s.tool === 'analyze_scanned_document' || s.tool === 'run_ocr') && s.result) {
-            citations.push({ name: 'Visual Evidence / OCR', sub: 'Extracted text & tables', tag: 'VISION' });
+          
+          if (foundDocs.size > 0) {
+            foundDocs.forEach(name => citations.push(name));
+          } else {
+            citations.push('RAG Knowledge Search');
           }
-        });
-      }
+        }
+        if ((s.tool === 'analyze_scanned_document' || s.tool === 'run_ocr') && s.output) citations.push('Visual Evidence / OCR');
+      });
+    }
+    const evCount = document.getElementById('evidence-count');
+    if (evCount) evCount.textContent = citations.length;
+    const evList = document.getElementById('evidence-list');
+    if (evList) {
       if (citations.length > 0) {
-        document.getElementById('evidence-count').textContent = citations.length;
-        document.getElementById('evidence-list').innerHTML = citations.map(c => `
-          <div class="row-item">
-            <div class="row-icon">${iconDoc}</div>
-            <div class="row-main">
-              <div class="row-title">${escapeHtml(c.name)}</div>
-              <div class="row-sub">${escapeHtml(c.sub)}</div>
+        evList.innerHTML = citations.map(c => `
+          <div class="trace-step-item">
+            <span class="trace-step-icon">⚲</span>
+            <div class="trace-step-main">
+              <div class="trace-step-title">${escapeHtml(c)}</div>
             </div>
-            <div class="row-right"><span class="tag ${c.tag === 'VISION' ? 'vision' : ''}">${c.tag}</span></div>
           </div>
         `).join('');
+      } else {
+        evList.innerHTML = `<div style="font-size:12px;color:var(--text-faint);padding:6px 0;">No chunks retrieved.</div>`;
       }
-
-      // Reload global artifacts and audit
-      loadArtifacts();
-      loadAuditLogs();
-
-    } else {
-      agentMsgEl.querySelector('.chat-body').innerHTML = `
-        <div class="chat-meta">EDGEMIND · ${now} &nbsp; ERROR</div>
-        <div class="chat-text" style="color:var(--danger);">Execution error: ${escapeHtml(data?.detail || res.statusText || 'Failed to complete task')}</div>
-      `;
     }
+
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
   } catch (err) {
-    const agentMsgEl = document.getElementById(agentMsgId);
-    if (agentMsgEl) {
-      agentMsgEl.querySelector('.chat-body').innerHTML = `
-        <div class="chat-meta">EDGEMIND · ${now} &nbsp; NETWORK ERROR</div>
-        <div class="chat-text" style="color:var(--danger);">Failed to connect to agent service: ${escapeHtml(err.message)}</div>
-      `;
-    }
-  } finally {
-    document.getElementById('task-status-badge').textContent = 'COMPLETED';
-    document.getElementById('task-status-badge').className = 'tag';
-    document.getElementById('trace-pill').textContent = 'IDLE';
-    document.getElementById('trace-pill').className = 'pill';
+    document.getElementById('trace-pill').textContent = 'ERROR';
+    document.getElementById('trace-pill').className = 'tag-pill danger';
     agentSubmit.disabled = false;
-    document.getElementById('btn-text').textContent = 'Execute';
+    
+    // Handle error in UI
+    const toolStatus = document.getElementById(`tool-status-${agentMsgId}`);
+    if (toolStatus) {
+      toolStatus.className = 'tool-status-pill error';
+      toolStatus.style.background = 'var(--danger-subtle)';
+      toolStatus.style.color = 'var(--danger)';
+      toolStatus.innerHTML = `Error`;
+    }
+    const contentBox = document.getElementById(`content-${agentMsgId}`);
+    contentBox.style.display = 'block';
+    contentBox.innerHTML = `
+      <div style="color:var(--danger);font-family:var(--font-mono);font-size:12.5px;padding:12px;background:var(--danger-subtle);border-radius:var(--radius-sm);border:1px solid var(--danger-border);">
+        <strong>Pipeline Failure:</strong><br/>
+        ${escapeHtml(err.message)}
+      </div>
+      <div class="message-actions" style="margin-top:12px; border-top:1px solid var(--border-subtle); padding-top:8px;">
+        <button class="btn-action-sm" onclick="retryPrompt('${agentMsgId}')" title="Regenerate">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg> Retry
+        </button>
+      </div>
+    `;
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 }
+
 
 // ---------------- KNOWLEDGE LIBRARY ----------------
 const knowledgeList = document.getElementById('knowledge-list');
@@ -432,13 +648,19 @@ knowledgeFileInput.addEventListener('change', async (e) => {
   } finally {
     knowledgeFileInput.value = '';
     knowledgeUploadBtn.disabled = false;
-    knowledgeUploadBtn.innerHTML = `${iconDownload} Upload SOP / PDF`;
+    knowledgeUploadBtn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <span>Upload SOP / PDF</span>
+    `;
   }
 });
 
 knowledgeSearch.addEventListener('input', (e) => {
   const query = e.target.value.toLowerCase();
-  const filtered = allDocuments.filter(d => d.filename.toLowerCase().includes(query) || (d.classification && d.classification.toLowerCase().includes(query)));
+  const filtered = allDocuments.filter(d => 
+    d.filename.toLowerCase().includes(query) || 
+    (d.classification && d.classification.toLowerCase().includes(query))
+  );
   renderDocuments(filtered);
 });
 
@@ -449,74 +671,92 @@ async function loadDocuments() {
       allDocuments = await res.json();
       renderDocuments(allDocuments);
       document.getElementById('sidebar-doc-count').textContent = allDocuments.length;
-      document.getElementById('doc-count-eyebrow').textContent = `RAG INDEX / ${allDocuments.length} DOCUMENTS`;
+      document.getElementById('doc-count-eyebrow').textContent = `${allDocuments.length} documents indexed in Qdrant vector database`;
     } else {
-      knowledgeList.innerHTML = `<div class="empty"><div class="empty-title">Failed to load documents</div></div>`;
+      knowledgeList.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-faint);">Failed to load knowledge documents</div>`;
     }
   } catch (e) {
-    knowledgeList.innerHTML = `<div class="empty"><div class="empty-title">Network error loading documents</div></div>`;
+    knowledgeList.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-faint);">Network error connecting to knowledge service</div>`;
   }
 }
 
 function renderDocuments(docs) {
-  if (!docs || docs.length === 0) {
-    knowledgeList.innerHTML = `
-      <div class="empty">
-        <div class="empty-title">No documents in index</div>
-        <div class="empty-sub">Click "Upload SOP / PDF" to add engineering specs, procedures, or inspection reports for RAG retrieval.</div>
-      </div>
-    `;
-    return;
-  }
-
-  knowledgeList.innerHTML = docs.map(d => {
-    const isVision = d.filename.toLowerCase().endsWith('.png') || d.filename.toLowerCase().endsWith('.jpg') || d.filename.toLowerCase().endsWith('.pdf');
-    const tag = isVision ? 'VISION' : 'RAG';
-    const dateStr = d.uploaded_at ? new Date(d.uploaded_at).toLocaleDateString() : 'Active';
-
-    return `
-      <div class="row-item">
-        <div class="row-icon">${iconDoc}</div>
-        <div class="row-main">
-          <div class="row-title">${escapeHtml(d.filename)}</div>
-          <div class="row-sub">Version ${d.version || 1} ·• Indexed in Qdrant</div>
-        </div>
-        <div class="row-right">
-          <span class="tag ${tag === 'VISION' ? 'vision' : ''}">${tag}</span>
-          <span class="tag muted">${escapeHtml(d.classification || 'internal')}</span>
-          <span style="font-size:11px;color:var(--text-faint);width:82px;text-align:right;">${dateStr}</span>
-          <button onclick="deleteDocument('${d.id}')" class="icon-btn" style="margin-left:8px;" title="Delete">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+    if (!docs || docs.length === 0) {
+      knowledgeList.innerHTML = `
+        <div style="text-align:center;padding:48px 20px;border:1px dashed var(--border);border-radius:var(--radius);">
+          <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No knowledge documents indexed</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Upload standard operating procedures, manuals, or inspection forms for RAG search.</div>
+          <button class="btn-download" onclick="document.getElementById('knowledge-file-input').click()">
+            Upload Document
           </button>
         </div>
+      `;
+      return;
+    }
+  
+    knowledgeList.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${docs.map(d => {
+          const fn = d.filename.toLowerCase();
+          const isVision = fn.endsWith('.png') || fn.endsWith('.jpg') || fn.endsWith('.jpeg');
+          const isPdf = fn.endsWith('.pdf');
+          const tag = isVision ? 'VISION' : 'RAG';
+          const dateStr = d.uploaded_at ? new Date(d.uploaded_at).toLocaleDateString() : '-';
+          
+          let currIcon = iconDoc;
+          if (isVision) currIcon = iconImage;
+          else if (isPdf) currIcon = iconPDF;
+          
+          const statusText = isVision ? 'Stored in MinIO' : 'Indexed in Qdrant';
+  
+          return `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius);">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div style="width:34px;height:34px;border-radius:var(--radius-sm);background:var(--panel);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);">
+                  ${currIcon}
+                </div>
+                <div>
+                  <div style="font-weight:500;color:var(--text-primary);font-size:13.5px;">${escapeHtml(d.filename)}</div>
+                  <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-muted);">Version ${d.version || 1} • ${statusText}</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span class="tag-pill ${tag === 'VISION' ? 'accent' : 'success'}">${tag}</span>
+                <span class="tag-pill">${escapeHtml(d.classification || 'internal')}</span>
+                <span style="font-size:11px;font-family:var(--font-mono);color:var(--text-faint);width:75px;text-align:right;">${dateStr}</span>
+                <button onclick="deleteDocument('${d.id}')" class="icon-button" style="color:var(--danger);" title="Delete document">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('')}
       </div>
     `;
-  }).join('');
-}
-
-window.deleteDocument = async function(id) {
-  if (!confirm("Are you sure you want to delete this document?")) return;
+  }
+  
+  window.deleteDocument = async function(id) {
+  if (!confirm("Are you sure you want to delete this document from the knowledge base?")) return;
   try {
     const res = await fetch(`${API}/documents/${id}`, {
       method: 'DELETE',
       headers: getHeaders()
     });
-    if (!res.ok) throw new Error("Failed to delete");
+    if (!res.ok) throw new Error("Failed to delete document");
     loadDocuments();
-      fetchSovereignty();
+    fetchSovereignty();
   } catch (err) {
     alert(err.message);
   }
 };
 
-// ---------------- ARTIFACTS PAGE ----------------
+// ---------------- ARTIFACTS / DELIVERABLES ----------------
 const artifactsList = document.getElementById('artifacts-list');
 
 window.downloadArtifact = async function(id, filename) {
   try {
     const res = await fetch(`${API}/artifacts/${id}/download`, { headers: getHeaders() });
     if (!res.ok) {
-      // Fallback: window.open with query token
       window.open(`${API}/artifacts/${id}/download?token=${encodeURIComponent(token)}`, '_blank');
       return;
     }
@@ -541,44 +781,51 @@ async function loadArtifacts() {
       allArtifacts = await res.json();
       renderArtifacts(allArtifacts);
       document.getElementById('sidebar-art-count').textContent = allArtifacts.length;
-      document.getElementById('artifact-count-eyebrow').textContent = `DELIVERABLES / ${allArtifacts.length} ARTIFACTS`;
+      document.getElementById('artifact-count-eyebrow').textContent = `${allArtifacts.length} deliverables created across tasks`;
     } else {
-      artifactsList.innerHTML = `<div class="empty"><div class="empty-title">Failed to load artifacts</div></div>`;
+      artifactsList.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-faint);">Failed to load deliverables</div>`;
     }
   } catch (e) {
-    artifactsList.innerHTML = `<div class="empty"><div class="empty-title">Network error loading artifacts</div></div>`;
+    artifactsList.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-faint);">Network error loading deliverables</div>`;
   }
 }
 
 function renderArtifacts(arts) {
   if (!arts || arts.length === 0) {
     artifactsList.innerHTML = `
-      <div class="empty">
-        <div class="empty-title">No artifacts generated yet</div>
-        <div class="empty-sub">Ask EdgeMind to "generate a DOCX report", "create an XLSX variance summary", or "export PDF note".</div>
+      <div style="text-align:center;padding:48px 20px;border:1px dashed var(--border);border-radius:var(--radius);">
+        <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No deliverables generated yet</div>
+        <div style="font-size:13px;color:var(--text-muted);">Ask EdgeMind to "generate a DOCX report", "export an XLSX checklist", or "create a PDF note".</div>
       </div>
     `;
     return;
   }
 
-  artifactsList.innerHTML = arts.map(a => {
-    const ext = (a.filename.split('.').pop() || 'FILE').toUpperCase();
-    const hashShort = a.file_hash ? `${a.file_hash.substring(0, 8)}…` : 'verified';
+  artifactsList.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      ${arts.map(a => {
+        const ext = (a.filename.split('.').pop() || 'FILE').toUpperCase();
+        const hashShort = a.file_hash ? `${a.file_hash.substring(0, 8)}…` : 'verified';
 
-    return `
-      <div class="row-item">
-        <div class="row-icon" style="color:var(--warn);">${iconDoc}</div>
-        <div class="row-main">
-          <div class="row-title">${escapeHtml(a.filename)}</div>
-          <div class="row-sub">${ext} · Task #${a.task_id ? a.task_id.substring(0, 8) : '0000'} · hash ${hashShort}</div>
-        </div>
-        <div class="row-right">
-          <span class="check" style="font-size:11px;">✓ verified</span>
-          <button onclick="downloadArtifact('${a.id}', '${escapeHtml(a.filename)}')" class="icon-btn" title="Download Artifact">${iconDownload}</button>
-        </div>
-      </div>
-    `;
-  }).join('');
+        return `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius);">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div style="width:34px;height:34px;border-radius:var(--radius-sm);background:var(--accent-subtle);border:1px solid var(--accent-border);display:flex;align-items:center;justify-content:center;color:var(--accent);">
+                ${iconDoc}
+              </div>
+              <div>
+                <div style="font-weight:500;color:var(--text-primary);font-size:13.5px;">${escapeHtml(a.filename)}</div>
+                <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-muted);">${ext} • Task #${a.task_id ? a.task_id.substring(0, 8) : '0000'} • SHA-256 ${hashShort}</div>
+              </div>
+            </div>
+            <button class="btn-download" onclick="downloadArtifact('${a.id}', '${escapeHtml(a.filename)}')">
+              ${iconDownload} Download
+            </button>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
 }
 
 // ---------------- AUDIT TRAIL ----------------
@@ -589,10 +836,10 @@ async function loadAuditLogs() {
     const res = await fetch(`${API}/audit/export`, { headers: getHeaders() });
     if (res.ok) {
       const data = await res.json();
-      const logs = data.audit_logs || (Array.isArray(data) ? data : []);
+      const logs = data.audit_logs || data.entries || (Array.isArray(data) ? data : []);
       renderAuditLogs(logs);
     } else {
-      auditBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-faint);padding:24px;">No audit records available or role restricted.</td></tr>`;
+      auditBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-faint);padding:24px;">No audit records available.</td></tr>`;
     }
   } catch (e) {
     auditBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-faint);padding:24px;">Audit trail standby.</td></tr>`;
@@ -601,28 +848,61 @@ async function loadAuditLogs() {
 
 function renderAuditLogs(logs) {
   if (!logs || logs.length === 0) {
-    auditBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-faint);padding:24px;">Audit trail empty. Actions are logged upon task &amp; document events.</td></tr>`;
+    auditBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-faint);padding:24px;">Audit trail empty. Actions are logged on task &amp; document events.</td></tr>`;
     return;
   }
 
-  auditBody.innerHTML = logs.slice(0, 30).map(l => {
+  auditBody.innerHTML = logs.slice(0, 40).map(l => {
     const timeStr = l.created_at ? new Date(l.created_at).toLocaleTimeString() : '—';
     const hashStr = l.hash ? l.hash.substring(0, 8) : '—';
 
     return `
       <tr>
-        <td class="mono">${timeStr}</td>
-        <td class="col-strong">${escapeHtml(l.user_id || 'system')}</td>
-        <td><span class="tag muted">${escapeHtml(l.action || 'EVENT')}</span></td>
+        <td style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">${timeStr}</td>
+        <td style="font-weight:500;color:var(--text-primary);">${escapeHtml(l.user_id || 'operator')}</td>
+        <td><span class="tag-pill">${escapeHtml(l.action || 'EVENT')}</span></td>
         <td>${escapeHtml(l.details || '')}</td>
-        <td class="mono">${hashStr}</td>
-        <td class="check">✓</td>
+        <td style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">${hashStr}</td>
+        <td style="color:var(--success);font-size:12px;">✓ verified</td>
       </tr>
     `;
   }).join('');
 }
 
-// ---------------- HELPERS ----------------
+// ---------------- SOVEREIGNTY TELEMETRY ----------------
+async function fetchSovereignty() {
+  try {
+    const res = await fetch(`${API}/sovereignty/report`, { headers: getHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    
+    const statusText = document.getElementById('sov-status-text');
+    const mainTitle = document.getElementById('sov-main-title');
+    const metaDesc = document.getElementById('sov-meta-desc');
+    
+    const dot = document.querySelector('.node-health .status-dot');
+    if (data.sovereign) {
+      statusText.textContent = 'AIR-GAPPED';
+      statusText.style.color = 'var(--success)';
+      if (dot) dot.style.background = 'var(--success)';
+      mainTitle.textContent = '100% Local Inference';
+      metaDesc.textContent = 'Zero egress detected • Ollama';
+    } else {
+      statusText.textContent = 'EGRESS FLAGGED';
+      statusText.style.color = '#ef4444';
+      if (dot) dot.style.background = '#ef4444';
+      mainTitle.textContent = 'External Network Reachable';
+      const flags = (data.network_monitor && data.network_monitor.flagged_external_connections && data.network_monitor.flagged_external_connections.length > 0) 
+        ? `${data.network_monitor.flagged_external_connections.length} external connections` 
+        : 'Outbound egress allowed';
+      metaDesc.textContent = flags;
+    }
+  } catch (err) {
+    console.error("Sovereignty fetch failed", err);
+  }
+}
+
+// ---------------- FORMATTING UTILS ----------------
 function escapeHtml(str) {
   if (!str) return '';
   return String(str)
@@ -636,10 +916,23 @@ function escapeHtml(str) {
 function formatMarkdown(text) {
   if (!text) return '';
   let clean = escapeHtml(text);
-  // Bold
-  clean = clean.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+  
+  // Headers
+  clean = clean.replace(/^### (.*$)/gim, '<h3 style="font-size:14px;font-weight:600;margin:8px 0 4px;color:var(--text-primary);">$1</h3>');
+  clean = clean.replace(/^## (.*$)/gim, '<h2 style="font-size:15px;font-weight:600;margin:12px 0 6px;color:var(--text-primary);">$1</h2>');
+  clean = clean.replace(/^# (.*$)/gim, '<h1 style="font-size:16px;font-weight:700;margin:14px 0 8px;color:var(--text-primary);">$1</h1>');
+  
+  // Bold & Italics
+  clean = clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  clean = clean.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  
   // Inline code
-  clean = clean.replace(/`([^`]+)`/g, '<code class="mono" style="background:var(--panel-2);padding:2px 5px;border-radius:3px;">$1</code>');
+  clean = clean.replace(/`([^`]+)`/g, '<code style="font-family:var(--font-mono);font-size:12px;background:var(--bg);padding:2px 6px;border-radius:4px;border:1px solid var(--border-subtle);color:var(--accent);">$1</code>');
+  
+  // Linebreaks / paragraphs
+  clean = clean.replace(/\n\n/g, '<div style="height:8px;"></div>');
+  clean = clean.replace(/\n/g, '<br/>');
+  
   return clean;
 }
 

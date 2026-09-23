@@ -61,6 +61,24 @@ class AgentResponse(BaseModel):
 
 
 from api.auth import get_current_user, UserInfo
+from models.registry import registry
+
+@router.get("/models")
+def list_models():
+    models_list = []
+    for model_id, info in registry.models.items():
+        # verify hash status
+        hash_info = registry.verify_model_hash(model_id)
+        models_list.append({
+            "id": model_id,
+            "modality": ", ".join(info.get("modality", [])),
+            "capabilities": ", ".join(info.get("capabilities", [])),
+            "vram_gb": info.get("vram_gb"),
+            "verified": hash_info.get("verified", False),
+            "status": "active" if registry.check_vram_capacity(model_id) else "insufficient_vram"
+        })
+    return models_list
+
 
 @router.post("/agent", response_model=AgentResponse)
 def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -155,7 +173,8 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
         log_audit_action(
             db=db,
             action="MODEL_ROUTE",
-            details=f"Task {task_id} routed to {model_id} (Type: {task_type})"
+            details=f"Task {task_id} routed to {model_id} (Type: {task_type})",
+            user_id=current_user.username,
         )
 
         # 4-6. EXECUTE → VALIDATE, with a bounded Phase 8 replan loop: if execution
@@ -292,10 +311,10 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
         }
 
         # Update task record with final response
-        task.response = final_output
+        task.response = final_output.replace('\x00', '')
         task.model_used = model_id
         task.grounding_score = grounding_score
-        task.validation_report = json.dumps(validation_report)
+        task.validation_report = json.dumps(validation_report).replace('\x00', '')
         task.retry_count = retry_count
         db.commit()
 

@@ -67,7 +67,7 @@ class ToolRegistry:
         if not self.check_tool_permission(tool_name, user_role):
             err_msg = f"Role '{user_role}' is not allowed to call tool '{tool_name}'."
             if db:
-                self.log_tool_call(db, arguments.get("task_id", "unknown"), tool_name, arguments, err_msg, status="DENIED")
+                self.log_tool_call(db, arguments.get("task_id", "unknown"), tool_name, arguments, err_msg, status="DENIED", username=username)
             raise PermissionError(err_msg)
         tool = self.get_tool(tool_name)
         if tool.handler is None:
@@ -83,6 +83,7 @@ class ToolRegistry:
                     arguments=arguments,
                     result=result,
                     status="COMPLETED",
+                    username=username
                 )
             return result
         except Exception as exc:
@@ -94,6 +95,7 @@ class ToolRegistry:
                     arguments=arguments,
                     result=None,
                     status="FAILED",
+                    username=username
                 )
             raise
 
@@ -105,6 +107,7 @@ class ToolRegistry:
         arguments: dict,
         result: Any,
         status: str = "COMPLETED",
+        username: str | None = None
     ) -> None:
         """
         Phase 3 (M5): Write a tool call record to the tool_calls table.
@@ -127,7 +130,7 @@ class ToolRegistry:
                 db=db,
                 action="TOOL_CALL",
                 details=f"Task {task_id} called {tool_name} with status={status}",
-                user_id=None
+                user_id=username
             )
         except Exception as exc:
             logger.warning("log_tool_call DB write failed: %s", exc)
@@ -304,7 +307,12 @@ def _run_ocr_handler(image_bytes: bytes = None, image_path: str = None, **kwargs
             image_bytes = res.get("image_bytes")
     if not image_bytes:
         return {"status": "error", "message": "No image_bytes or image_path provided."}
-    return run_ocr(image_bytes)
+    
+    ocr_result = run_ocr(image_bytes)
+    if ocr_result.get("status") == "ok":
+        # Add stdout key so executor.py extracts clean text instead of raw JSON
+        ocr_result["stdout"] = ocr_result.get("text", "")
+    return ocr_result
 
 
 def _analyze_scanned_document_handler(image_bytes: bytes = None, image_path: str = None, image_base64: str = None, **kwargs) -> dict:

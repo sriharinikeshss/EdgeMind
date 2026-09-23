@@ -35,6 +35,12 @@ def egress_check(current_user: UserInfo = Depends(require_operator)):
     return verify_no_egress()
 
 
+@router.post("/sovereignty/enforce-airgap")
+def enforce_airgap_route(current_user: UserInfo = Depends(require_operator)):
+    from security.sovereignty import enforce_airgap_isolation
+    return enforce_airgap_isolation()
+
+
 @router.get("/audit/export")
 def audit_export(db: Session = Depends(get_db), current_user: UserInfo = Depends(require_operator)):
     from database.repo import export_audit_report

@@ -39,6 +39,8 @@ async def upload_document(
                 text += page.extract_text() + "\n"
         except Exception as e:
             text = f"Error extracting PDF: {e}"
+    elif file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+        text = "" # Skip text extraction for images
     else:
         text = content.decode("utf-8", errors="ignore")
     
@@ -87,8 +89,8 @@ def list_documents(db: Session = Depends(get_db), current_user: UserInfo = Depen
 
 
 @router.delete("/documents/{doc_id}")
-def delete_document(doc_id: str, db: Session = Depends(get_db), current_user: UserInfo = Depends(require_admin)):
-    """Delete document by ID — destructive, admin-only."""
+def delete_document(doc_id: str, db: Session = Depends(get_db), current_user: UserInfo = Depends(require_operator)):
+    """Delete document by ID — destructive, operator or admin."""
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
