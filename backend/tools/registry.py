@@ -294,7 +294,12 @@ def _run_ocr_handler(image_bytes: bytes = None, image_path: str = None, **kwargs
             image_bytes = res.get("image_bytes")
     if not image_bytes:
         return {"status": "error", "message": "No image_bytes or image_path provided."}
-    return run_ocr(image_bytes)
+    
+    ocr_result = run_ocr(image_bytes)
+    if ocr_result.get("status") == "ok":
+        # Add stdout key so executor.py extracts clean text instead of raw JSON
+        ocr_result["stdout"] = ocr_result.get("text", "")
+    return ocr_result
 
 
 def _analyze_scanned_document_handler(image_bytes: bytes = None, image_path: str = None, image_base64: str = None, **kwargs) -> dict:
