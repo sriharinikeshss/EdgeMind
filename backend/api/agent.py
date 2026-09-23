@@ -173,7 +173,8 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
         log_audit_action(
             db=db,
             action="MODEL_ROUTE",
-            details=f"Task {task_id} routed to {model_id} (Type: {task_type})"
+            details=f"Task {task_id} routed to {model_id} (Type: {task_type})",
+            user_id=current_user.username,
         )
 
         # 4-6. EXECUTE → VALIDATE, with a bounded Phase 8 replan loop: if execution
@@ -310,10 +311,10 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
         }
 
         # Update task record with final response
-        task.response = final_output
+        task.response = final_output.replace('\x00', '')
         task.model_used = model_id
         task.grounding_score = grounding_score
-        task.validation_report = json.dumps(validation_report)
+        task.validation_report = json.dumps(validation_report).replace('\x00', '')
         task.retry_count = retry_count
         db.commit()
 

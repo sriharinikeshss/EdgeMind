@@ -125,18 +125,12 @@
     margin-bottom: 16px;
   }
   .brand-logo {
-    width: 30px;
-    height: 30px;
-    border-radius: var(--radius-sm);
-    background: linear-gradient(135deg, #3f3f46 0%, #18181b 100%);
-    border: 1px solid var(--border-active);
+    width: 38px;
+    height: 38px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
-    font-weight: 700;
-    font-size: 14px;
-    box-shadow: 0 0 16px rgba(63, 63, 70, 0.4);
+    flex-shrink: 0;
   }
   .brand-info { display: flex; flex-direction: column; }
   .brand-title {
@@ -1118,7 +1112,53 @@
   <!-- LEFT SIDEBAR -->
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-logo">EM</div>
+      <div class="brand-logo">
+        <svg viewBox="0 0 100 100" width="38" height="38" style="overflow: visible;">
+          
+          <!-- 1. Outer Dashed Hexagon -->
+          <polygon points="50,5 88.97,27.5 88.97,72.5 50,95 11.03,72.5 11.03,27.5" 
+                   fill="none" stroke="#3f3f46" stroke-width="1.2" stroke-dasharray="3,3" />
+
+          <!-- 2. Mid Solid Hexagon -->
+          <polygon points="50,14 81.18,32 81.18,68 50,86 18.82,68 18.82,32" 
+                   fill="none" stroke="#52525b" stroke-width="1.5" stroke-linejoin="round" />
+
+          <!-- 3. Radial Spokes (Mid to Inner) -->
+          <line x1="50" y1="14" x2="50" y2="32" stroke="#52525b" stroke-width="1.5" />
+          <line x1="81.18" y1="32" x2="65.59" y2="41" stroke="#52525b" stroke-width="1.5" />
+          <line x1="81.18" y1="68" x2="65.59" y2="59" stroke="#52525b" stroke-width="1.5" />
+          <line x1="50" y1="86" x2="50" y2="68" stroke="#52525b" stroke-width="1.5" />
+          <line x1="18.82" y1="68" x2="34.41" y2="59" stroke="#52525b" stroke-width="1.5" />
+          <line x1="18.82" y1="32" x2="34.41" y2="41" stroke="#52525b" stroke-width="1.5" />
+
+          <!-- 4. Inner Solid Hexagon -->
+          <polygon points="50,32 65.59,41 65.59,59 50,68 34.41,59 34.41,41" 
+                   fill="none" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
+
+          <!-- 5. Inner Solid Y (Center to Top-Left, Top-Right, Bottom) -->
+          <line x1="50" y1="50" x2="34.41" y2="41" stroke="#ffffff" stroke-width="2" stroke-linecap="round" />
+          <line x1="50" y1="50" x2="65.59" y2="41" stroke="#ffffff" stroke-width="2" stroke-linecap="round" />
+          <line x1="50" y1="50" x2="50" y2="68" stroke="#ffffff" stroke-width="2" stroke-linecap="round" />
+
+          <!-- 6. Inner Dashed Line (Center to Top) -->
+          <line x1="50" y1="50" x2="50" y2="32" stroke="#ffffff" stroke-width="2" stroke-dasharray="3,3" stroke-linecap="round" />
+
+          <!-- 7. Dots -->
+          <circle cx="50" cy="14" r="1.5" fill="#71717a" />
+          <circle cx="81.18" cy="32" r="1.5" fill="#71717a" />
+          <circle cx="81.18" cy="68" r="1.5" fill="#71717a" />
+          <circle cx="50" cy="86" r="1.5" fill="#71717a" />
+          <circle cx="18.82" cy="68" r="1.5" fill="#71717a" />
+          <circle cx="18.82" cy="32" r="1.5" fill="#71717a" />
+          <circle cx="50" cy="32" r="2" fill="#a1a1aa" />
+          <circle cx="65.59" cy="41" r="2" fill="#a1a1aa" />
+          <circle cx="65.59" cy="59" r="2" fill="#a1a1aa" />
+          <circle cx="50" cy="68" r="2" fill="#a1a1aa" />
+          <circle cx="34.41" cy="59" r="2" fill="#a1a1aa" />
+          <circle cx="34.41" cy="41" r="2" fill="#a1a1aa" />
+          <circle cx="50" cy="50" r="2.5" fill="#ffffff" />
+        </svg>
+      </div>
       <div class="brand-info">
         <div class="brand-title">EdgeMind</div>
         <div class="brand-subtitle">AIR-GAPPED AGENT</div>
@@ -1440,8 +1480,48 @@
 <!-- LOGIN SCREEN -->
 <div class="login-screen" id="login">
   <header class="login-header-nav">
-    <div class="brand">
-      <span class="status-dot success"></span> EdgeMind
+    <div class="brand" style="display:flex; align-items:center; gap:8px;">
+      <div style="display:flex; align-items:center; justify-content:center; width:22px; height:22px;">
+        <svg viewBox="0 0 100 100" width="100%" height="100%" style="overflow: visible;">
+          <!-- 1. Outer Dashed Hexagon -->
+          <polygon points="50,5 88.97,27.5 88.97,72.5 50,95 11.03,72.5 11.03,27.5" 
+                   fill="none" stroke="#3f3f46" stroke-width="1.2" stroke-dasharray="3,3" />
+          <!-- 2. Mid Solid Hexagon -->
+          <polygon points="50,14 81.18,32 81.18,68 50,86 18.82,68 18.82,32" 
+                   fill="none" stroke="#52525b" stroke-width="1.5" stroke-linejoin="round" />
+          <!-- 3. Radial Spokes (Mid to Inner) -->
+          <line x1="50" y1="14" x2="50" y2="32" stroke="#52525b" stroke-width="1.5" />
+          <line x1="81.18" y1="32" x2="65.59" y2="41" stroke="#52525b" stroke-width="1.5" />
+          <line x1="81.18" y1="68" x2="65.59" y2="59" stroke="#52525b" stroke-width="1.5" />
+          <line x1="50" y1="86" x2="50" y2="68" stroke="#52525b" stroke-width="1.5" />
+          <line x1="18.82" y1="68" x2="34.41" y2="59" stroke="#52525b" stroke-width="1.5" />
+          <line x1="18.82" y1="32" x2="34.41" y2="41" stroke="#52525b" stroke-width="1.5" />
+          <!-- 4. Inner Solid Hexagon -->
+          <polygon points="50,32 65.59,41 65.59,59 50,68 34.41,59 34.41,41" 
+                   fill="none" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
+          <!-- 5. Inner Solid Y (Center to Top-Left, Top-Right, Bottom) -->
+          <line x1="50" y1="50" x2="34.41" y2="41" stroke="#ffffff" stroke-width="2" stroke-linecap="round" />
+          <line x1="50" y1="50" x2="65.59" y2="41" stroke="#ffffff" stroke-width="2" stroke-linecap="round" />
+          <line x1="50" y1="50" x2="50" y2="68" stroke="#ffffff" stroke-width="2" stroke-linecap="round" />
+          <!-- 6. Inner Dashed Line (Center to Top) -->
+          <line x1="50" y1="50" x2="50" y2="32" stroke="#ffffff" stroke-width="2" stroke-dasharray="3,3" stroke-linecap="round" />
+          <!-- 7. Dots -->
+          <circle cx="50" cy="14" r="1.5" fill="#71717a" />
+          <circle cx="81.18" cy="32" r="1.5" fill="#71717a" />
+          <circle cx="81.18" cy="68" r="1.5" fill="#71717a" />
+          <circle cx="50" cy="86" r="1.5" fill="#71717a" />
+          <circle cx="18.82" cy="68" r="1.5" fill="#71717a" />
+          <circle cx="18.82" cy="32" r="1.5" fill="#71717a" />
+          <circle cx="50" cy="32" r="2" fill="#a1a1aa" />
+          <circle cx="65.59" cy="41" r="2" fill="#a1a1aa" />
+          <circle cx="65.59" cy="59" r="2" fill="#a1a1aa" />
+          <circle cx="50" cy="68" r="2" fill="#a1a1aa" />
+          <circle cx="34.41" cy="59" r="2" fill="#a1a1aa" />
+          <circle cx="34.41" cy="41" r="2" fill="#a1a1aa" />
+          <circle cx="50" cy="50" r="2.5" fill="#ffffff" />
+        </svg>
+      </div>
+      EdgeMind
     </div>
     <nav class="login-nav-center">
       <a href="#" class="active">Sign in</a>

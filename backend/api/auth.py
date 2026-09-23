@@ -136,6 +136,22 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
         )
 
     token = _create_access_token({"sub": user["username"], "role": user["role"]})
+    
+    from database.session import get_db
+    from database.repo import log_audit_action
+    
+    db_gen = get_db()
+    db = next(db_gen)
+    try:
+        log_audit_action(
+            db=db,
+            action="USER_LOGIN",
+            details=f"User {user['username']} ({user['role']}) logged in",
+            user_id=user["username"]
+        )
+    finally:
+        db_gen.close()
+        
     return TokenResponse(
         access_token=token,
         username=user["username"],

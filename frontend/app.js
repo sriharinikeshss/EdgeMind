@@ -15,6 +15,8 @@ let attachedFileName = '';
 
 // Icons
 const iconDoc = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`;
+const iconImage = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+const iconPDF = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M10 18v-6"/><path d="M10 12h3a2 2 0 1 1 0 4h-3"/></svg>`;
 const iconDownload = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
 const iconCheck = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`;
 const iconCopy = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
@@ -677,53 +679,61 @@ async function loadDocuments() {
 }
 
 function renderDocuments(docs) {
-  if (!docs || docs.length === 0) {
+    if (!docs || docs.length === 0) {
+      knowledgeList.innerHTML = `
+        <div style="text-align:center;padding:48px 20px;border:1px dashed var(--border);border-radius:var(--radius);">
+          <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No knowledge documents indexed</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Upload standard operating procedures, manuals, or inspection forms for RAG search.</div>
+          <button class="btn-download" onclick="document.getElementById('knowledge-file-input').click()">
+            Upload Document
+          </button>
+        </div>
+      `;
+      return;
+    }
+  
     knowledgeList.innerHTML = `
-      <div style="text-align:center;padding:48px 20px;border:1px dashed var(--border);border-radius:var(--radius);">
-        <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No knowledge documents indexed</div>
-        <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Upload standard operating procedures, manuals, or inspection forms for RAG search.</div>
-        <button class="btn-download" onclick="document.getElementById('knowledge-file-input').click()">
-          Upload Document
-        </button>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${docs.map(d => {
+          const fn = d.filename.toLowerCase();
+          const isVision = fn.endsWith('.png') || fn.endsWith('.jpg') || fn.endsWith('.jpeg');
+          const isPdf = fn.endsWith('.pdf');
+          const tag = isVision ? 'VISION' : 'RAG';
+          const dateStr = d.uploaded_at ? new Date(d.uploaded_at).toLocaleDateString() : '-';
+          
+          let currIcon = iconDoc;
+          if (isVision) currIcon = iconImage;
+          else if (isPdf) currIcon = iconPDF;
+          
+          const statusText = isVision ? 'Stored in MinIO' : 'Indexed in Qdrant';
+  
+          return `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius);">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div style="width:34px;height:34px;border-radius:var(--radius-sm);background:var(--panel);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);">
+                  ${currIcon}
+                </div>
+                <div>
+                  <div style="font-weight:500;color:var(--text-primary);font-size:13.5px;">${escapeHtml(d.filename)}</div>
+                  <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-muted);">Version ${d.version || 1} • ${statusText}</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span class="tag-pill ${tag === 'VISION' ? 'accent' : 'success'}">${tag}</span>
+                <span class="tag-pill">${escapeHtml(d.classification || 'internal')}</span>
+                <span style="font-size:11px;font-family:var(--font-mono);color:var(--text-faint);width:75px;text-align:right;">${dateStr}</span>
+                <button onclick="deleteDocument('${d.id}')" class="icon-button" style="color:var(--danger);" title="Delete document">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('')}
       </div>
     `;
-    return;
   }
-
-  knowledgeList.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      ${docs.map(d => {
-        const isVision = d.filename.toLowerCase().endsWith('.png') || d.filename.toLowerCase().endsWith('.jpg') || d.filename.toLowerCase().endsWith('.pdf');
-        const tag = isVision ? 'VISION' : 'RAG';
-        const dateStr = d.uploaded_at ? new Date(d.uploaded_at).toLocaleDateString() : 'Active';
-
-        return `
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius);">
-            <div style="display:flex;align-items:center;gap:12px;">
-              <div style="width:34px;height:34px;border-radius:var(--radius-sm);background:var(--panel);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);">
-                ${iconDoc}
-              </div>
-              <div>
-                <div style="font-weight:500;color:var(--text-primary);font-size:13.5px;">${escapeHtml(d.filename)}</div>
-                <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-muted);">Version ${d.version || 1} • Indexed in Qdrant</div>
-              </div>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <span class="tag-pill ${tag === 'VISION' ? 'accent' : 'success'}">${tag}</span>
-              <span class="tag-pill">${escapeHtml(d.classification || 'internal')}</span>
-              <span style="font-size:11px;font-family:var(--font-mono);color:var(--text-faint);width:75px;text-align:right;">${dateStr}</span>
-              <button onclick="deleteDocument('${d.id}')" class="icon-button" style="color:var(--danger);" title="Delete document">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-              </button>
-            </div>
-          </div>
-        `;
-      }).join('')}
-    </div>
-  `;
-}
-
-window.deleteDocument = async function(id) {
+  
+  window.deleteDocument = async function(id) {
   if (!confirm("Are you sure you want to delete this document from the knowledge base?")) return;
   try {
     const res = await fetch(`${API}/documents/${id}`, {
@@ -824,7 +834,7 @@ async function loadAuditLogs() {
     const res = await fetch(`${API}/audit/export`, { headers: getHeaders() });
     if (res.ok) {
       const data = await res.json();
-      const logs = data.audit_logs || (Array.isArray(data) ? data : []);
+      const logs = data.audit_logs || data.entries || (Array.isArray(data) ? data : []);
       renderAuditLogs(logs);
     } else {
       auditBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-faint);padding:24px;">No audit records available.</td></tr>`;
