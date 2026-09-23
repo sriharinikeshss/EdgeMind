@@ -181,9 +181,25 @@ class Executor:
         from tools.registry import ARTIFACT_TOOL_NAMES
         if tool_name in ARTIFACT_TOOL_NAMES:
             if "title" not in params or not params["title"]:
-                params["title"] = step.action or "Approval Note"
-            if "content" not in params and ctx_str:
-                params["content"] = ctx_str
+                params["title"] = step.action or "Report"
+            # Only inject content if the plan didn't already supply it.
+            # Collect only clean text from prior direct_llm steps — skip
+            # artifact metadata dicts (they are JSON blobs like {"status":"ok","id":...})
+            if "content" not in params or not params.get("content"):
+                text_context_parts = []
+                for sid, out in self.context.items():
+                    src_tool = self.context_sources.get(sid, "")
+                    # Skip output from other artifact generators (JSON metadata)
+                    if src_tool in ARTIFACT_TOOL_NAMES:
+                        continue
+                    out_str = str(out).strip()
+                    # Skip strings that look like raw JSON metadata blobs
+                    if out_str.startswith("{") and '"status"' in out_str and '"file_hash"' in out_str:
+                        continue
+                    if out_str:
+                        text_context_parts.append(out_str)
+                if text_context_parts:
+                    params["content"] = "\n\n".join(text_context_parts)
 
         try:
             if tool_name == "direct_llm":
@@ -255,6 +271,17 @@ class Executor:
                         clean_output = output["grounding_prompt"]
                     elif output.get("stdout") is not None:
                         clean_output = output["stdout"]
+                    elif tool_name in ARTIFACT_TOOL_NAMES and output.get("status") == "ok":
+                        # Artifact tool succeeded — show a clean human-readable summary
+                        # instead of dumping the raw metadata JSON into the chat.
+                        fname = output.get("filename", "file")
+                        fhash = output.get("file_hash", "")[:12]
+                        clean_output = (
+                            f"✅ Document generated successfully.\n\n"
+                            f"**File:** {fname}\n"
+                            f"**Hash:** {fhash}...\n\n"
+                            f"Your file is ready to download below."
+                        )
                     else:
                         # Fallback for dicts without standard keys (if any)
                         clean_output = json.dumps(output)

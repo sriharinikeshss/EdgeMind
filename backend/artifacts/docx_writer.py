@@ -3,12 +3,19 @@ DOCX Artifact Writer — Phase 7 implementation (M5).
 
 Uses python-docx to build real documents with headings, paragraphs,
 tables, and an appended citations block sourced from RAG metadata.
+
+Supports markdown-style content parsing:
+  - Lines starting with # or ## → Heading 1 / Heading 2
+  - Lines starting with - [ ] or * [ ] → Checkbox checklist items (☐)
+  - Lines starting with - or * → Bullet list items
+  - Everything else → Regular paragraph text
 """
 from __future__ import annotations
 import uuid
 from typing import Any
 
 from docx import Document
+from docx.shared import Pt
 
 from artifacts.storage import artifact_path, sha256_file
 from artifacts.citations import format_citation_line
@@ -47,6 +54,66 @@ class DocxWriter:
         """Load a corporate .docx template as the base document instead of a blank one."""
         return Document(template_path)
 
+    def _add_content_rich(self, doc: Document, content: str) -> None:
+        """
+        Parse content string with markdown-style formatting into structured DOCX elements.
+
+        Supports:
+          ## Heading 2 text        → doc.add_heading(level=2)
+          # Heading 1 text         → doc.add_heading(level=1)
+          - [ ] checklist item     → paragraph with ☐ prefix (List Bullet style)
+          - [x] checked item       → paragraph with ☑ prefix (List Bullet style)
+          - bullet item            → List Bullet style paragraph
+          * bullet item            → List Bullet style paragraph
+          **bold text**            → bold run paragraph
+          normal text              → regular paragraph
+        """
+        # Support both literal \n in JSON strings and real newlines
+        lines = content.replace("\\n", "\n").split("\n")
+
+        for line in lines:
+            stripped = line.strip()
+
+            if not stripped:
+                continue
+
+            # Heading 2: ##
+            if stripped.startswith("## "):
+                doc.add_heading(stripped[3:].strip(), level=2)
+
+            # Heading 1: #
+            elif stripped.startswith("# "):
+                doc.add_heading(stripped[2:].strip(), level=1)
+
+            # Unchecked checkbox: - [ ] or * [ ]
+            elif stripped.startswith(("- [ ]", "* [ ]")):
+                text = stripped[5:].strip()
+                p = doc.add_paragraph(style="List Bullet")
+                run = p.add_run(f"\u2610  {text}")
+                run.font.size = Pt(11)
+
+            # Checked checkbox: - [x] or * [x]
+            elif stripped.startswith(("- [x]", "* [x]", "- [X]", "* [X]")):
+                text = stripped[5:].strip()
+                p = doc.add_paragraph(style="List Bullet")
+                run = p.add_run(f"\u2611  {text}")
+                run.font.size = Pt(11)
+
+            # Bullet point: - or *
+            elif stripped.startswith("- ") or stripped.startswith("* "):
+                text = stripped[2:].strip()
+                doc.add_paragraph(text, style="List Bullet")
+
+            # Bold: **text**
+            elif stripped.startswith("**") and stripped.endswith("**") and len(stripped) > 4:
+                p = doc.add_paragraph()
+                run = p.add_run(stripped[2:-2])
+                run.bold = True
+
+            # Regular paragraph
+            else:
+                doc.add_paragraph(stripped)
+
     def create_docx(
         self,
         task_id: str,
@@ -60,6 +127,7 @@ class DocxWriter:
         """
         Build a DOCX artifact and persist it to disk.
 
+        `content` supports markdown-style formatting (##, -, - [ ], **bold**).
         `table`, if given, is {"headers": [...], "rows": [[...], ...]}.
         Returns artifact metadata: id, filename, content_type, file_hash, path.
         """
@@ -69,10 +137,10 @@ class DocxWriter:
         doc = self.apply_template(None, template_path) if template_path else Document()
         self.add_heading(doc, title, level=1)
 
-        for paragraph in content.split("\n\n"):
-            paragraph = paragraph.strip()
-            if paragraph:
-                doc.add_paragraph(paragraph)
+        if content and content.strip():
+            self._add_content_rich(doc, content)
+        else:
+            doc.add_paragraph("No content was provided for this document.")
 
         if table and table.get("headers"):
             self.add_table(doc, table["headers"], table.get("rows", []))
