@@ -42,16 +42,17 @@ services:
     image: ollama/ollama:latest
     volumes:
       - ollama_data:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: ["gpu"]
-              count: all
-              driver: nvidia
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - capabilities: ["gpu"]
+    #           count: all
+    #           driver: nvidia
 
   backend:
     build: ./backend
+    privileged: true
     cap_add:
       - NET_ADMIN
     ports:
