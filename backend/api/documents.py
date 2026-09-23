@@ -41,8 +41,10 @@ async def upload_document(
             text = f"Error extracting PDF: {e}"
     elif file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
         text = "" # Skip text extraction for images
-    else:
+    elif file.filename.lower().endswith(('.txt', '.md', '.csv')):
         text = content.decode("utf-8", errors="ignore")
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported file format for knowledge extraction")
     
     # Check if document exists for versioning
     existing_doc = db.query(Document).filter(Document.filename == file.filename).order_by(Document.version.desc()).first()
@@ -97,6 +99,28 @@ def delete_document(doc_id: str, db: Session = Depends(get_db), current_user: Us
 
     db.delete(doc)
     db.commit()
+
+    # Also delete the associated chunks from the Qdrant vector database
+    try:
+        import os
+        from qdrant_client import QdrantClient
+        from qdrant_client.models import Filter, FieldCondition, MatchValue
+        
+        qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
+        client = QdrantClient(url=qdrant_url)
+        client.delete(
+            collection_name="kavach_docs",
+            points_selector=Filter(
+                must=[
+                    FieldCondition(
+                        key="doc_id",
+                        match=MatchValue(value=doc_id)
+                    )
+                ]
+            )
+        )
+    except Exception as e:
+        logger.warning(f"Failed to delete chunks from Qdrant for doc {doc_id}: {e}")
 
     from database.repo import log_audit_action
     log_audit_action(

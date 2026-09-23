@@ -235,26 +235,41 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
             sm.transition(TaskStatus.VALIDATING)
             sm.persist_task_state(db)
 
-            # Phase 8: grounding score against whichever source-of-truth this plan used —
-            # RAG citation text if a rag_search step ran, else the Phase 5 vision
-            # extraction if a vision step ran, else there's nothing to hallucinate
-            # against and the answer is trivially grounded.
+            # --- Validation Stage 1: Schema Check ---
+            schema_ok = validator.validate_answer(task_id, final_output, req.expected_schema)
+            step_results.append(StepResult(
+                action="Validating Output Schema",
+                success=schema_ok,
+                output="Schema matched" if schema_ok else "Schema validation failed",
+                tool="validation_engine"
+            ))
+
+            # --- Validation Stage 2: Extract Claims ---
+            from tools.registry import ARTIFACT_TOOL_NAMES
+            non_artifact_outputs = [
+                r.output for r in reversed(step_results[:-1]) # exclude the newly added schema check
+                if r.success and r.tool not in ARTIFACT_TOOL_NAMES and r.output
+            ]
+            answer_text = non_artifact_outputs[0] if non_artifact_outputs else final_output
+            claims = validator.extract_claims(answer_text)
+            
+            step_results.append(StepResult(
+                action="Extracting Claims",
+                success=True,
+                output=f"Extracted {len(claims)} verifiable claims from the generated text.",
+                tool="validation_engine"
+            ))
+
+            # --- Validation Stage 3: Auto-Retrieval & Grounding Check ---
             rag_text = "\n".join(r.output or "" for r in step_results if r.tool == "rag_search" and r.success)
             vision_extraction = next(
                 (r.tool_data for r in step_results
                  if r.tool in ("analyze_scanned_document", "analyze_engineering_drawing") and r.tool_data),
                 None,
             )
-            # Claims come from the actual textual reasoning/summary step (skipping artifact
-            # JSON receipts like {"status": "ok", "id": ...}) — so grounding is scored
-            # on the synthesized analysis against the source-of-truth.
-            from tools.registry import ARTIFACT_TOOL_NAMES
-            non_artifact_outputs = [
-                r.output for r in reversed(step_results)
-                if r.success and r.tool not in ARTIFACT_TOOL_NAMES and r.output
-            ]
-            answer_text = non_artifact_outputs[0] if non_artifact_outputs else final_output
-            claims = validator.extract_claims(answer_text)
+
+            is_base_model = False
+
             if rag_text:
                 grounding_score = validator.calculate_grounding_score(claims, rag_text)
                 unsupported_claims = validator.detect_unsupported_claims(claims, rag_text)
@@ -262,10 +277,51 @@ def run_agent(req: AgentRequest, db: Session = Depends(get_db), current_user: Us
                 unsupported_claims = validator.detect_hallucination_risk(claims, vision_extraction)
                 grounding_score = round(1.0 - (len(unsupported_claims) / len(claims)), 3) if claims else 1.0
             else:
-                grounding_score, unsupported_claims = 1.0, []
+                # No sources were used by the planner. Run Self-RAG Auto-Verification.
+                from rag.retrieval import rag_search
+                self_rag_evidence = []
+                for claim in claims:
+                    evidence = rag_search(claim)
+                    if evidence and len(evidence) > 20: # Make sure it actually found something
+                        self_rag_evidence.append(evidence)
+                
+                if self_rag_evidence:
+                    rag_text = "\n".join(self_rag_evidence)
+                    step_results.append(StepResult(
+                        action="Self-RAG Evidence Retrieval",
+                        success=True,
+                        output=f"Auto-retrieved missing evidence for {len(claims)} claims.",
+                        tool="validation_engine"
+                    ))
+                    # Score using LLM-as-a-judge for stricter semantic checking
+                    scores = [validator.llm_judge_grounding(c, rag_text) for c in claims]
+                    grounding_score = round(sum(scores) / len(scores), 3) if scores else 1.0
+                    unsupported_claims = [c for c, s in zip(claims, scores) if s < GROUNDING_THRESHOLD]
+                else:
+                    # Knowledge library is empty or no relevant SOPs exist for this claim.
+                    # Base model fallback logic: do not fail with 0%, instead mark as N/A.
+                    is_base_model = True
+                    grounding_score = -1.0
+                    unsupported_claims = []
+                    step_results.append(StepResult(
+                        action="Grounding Evidence Not Found",
+                        success=True,
+                        output="No relevant SOPs found. Falling back to Base Model Knowledge.",
+                        tool="validation_engine"
+                    ))
 
-            schema_ok = validator.validate_answer(task_id, final_output, req.expected_schema)
-            grounding_ok = grounding_score >= GROUNDING_THRESHOLD
+            if not is_base_model:
+                grounding_ok = grounding_score >= GROUNDING_THRESHOLD
+                step_results.append(StepResult(
+                    action="Verifying Claim Grounding",
+                    success=grounding_ok,
+                    output=f"Grounding Score: {int(grounding_score * 100)}%" + 
+                           (f" | Unsupported: {len(unsupported_claims)}" if unsupported_claims else ""),
+                    tool="validation_engine"
+                ))
+            else:
+                grounding_ok = True  # We don't fail base model queries on grounding
+
             validation_passed = schema_ok and grounding_ok
 
             if validation_passed:

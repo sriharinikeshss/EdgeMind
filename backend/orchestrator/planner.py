@@ -42,27 +42,37 @@ Each step object must have:
   - "action": a brief description of what to do
   - "tool": tool to use. Available options:
       * "direct_llm": Use for summarization, checklists, reasoning, writing, and text analysis (Default for general steps).
-      * "analyze_scanned_document": Use FIRST if analyzing a scanned report, form, inspection sheet, or document image.
-      * "analyze_engineering_drawing": Use FIRST if analyzing a P&ID, schematic, blueprint, or engineering drawing.
+      * "analyze_scanned_document": Use FIRST ONLY IF the user explicitly says they have a scanned image/photo to analyze.
+      * "analyze_engineering_drawing": Use FIRST ONLY IF the user explicitly says they have a P&ID, schematic, or blueprint IMAGE to analyze.
       * "run_ocr": Use for low-level OCR text extraction on images.
       * "execute_python": Use ONLY if the step requires executing actual Python code or calculations.
       * "rag_search": Use ONLY if searching stored SOPs, manuals, or documents (params: query).
-      * "generate_docx": Use LAST if the user wants a downloadable report/document/approval note (params: title, content, optional table, optional citations).
+      * "generate_docx": Use LAST if the user wants a downloadable report/document/checklist (params: title, content). CONTENT IS MANDATORY - write the full report body text here.
       * "generate_xlsx": Use LAST if the user wants a downloadable spreadsheet/table export (params: title, headers, rows).
-      * "generate_pdf": Use LAST if the user explicitly wants a PDF file (params: title, content, optional table).
+      * "generate_pdf": Use LAST if the user explicitly wants a PDF file (params: title, content). CONTENT IS MANDATORY.
       * "generate_csv"/"generate_json": Use LAST for a downloadable CSV or JSON data export (params: title, headers/rows or data).
   - "depends_on": list of step_ids this step depends on (can be empty list)
   - "params": dict of parameters for the tool call (can be empty dict)
 
-Anti-Hallucination Rule: Whenever an image, scan, or drawing is involved, you MUST insert the appropriate vision extraction step before any reasoning or summarization step.
-Deliverable Rule: Whenever the user asks for a downloadable file/report/document/spreadsheet, the LAST step MUST use one of the generate_* artifact tools, depending on the step(s) whose output it should contain.
+CRITICAL RULE — Document Content: When using generate_docx or generate_pdf, you MUST write the full, detailed report body text directly into the "content" param. Use markdown formatting with ## for section headings and - for bullet points/checklist items. DO NOT leave content empty or short.
+
+Anti-Hallucination Rule: Only use vision/drawing tools (analyze_scanned_document, analyze_engineering_drawing) if the user says they have an IMAGE or SCAN to analyze. Domain words like "valve", "pipe", "pressure" do NOT mean an image is present.
+Deliverable Rule: Whenever the user asks for a downloadable file/report/document/spreadsheet, the LAST step MUST use one of the generate_* artifact tools.
 
 Only output valid JSON, no extra text.
-Example for multimodal document task:
+Example for a report generation task:
 {
   "steps": [
-    {"step_id": "step_1", "action": "Extract structured fields from scanned report", "tool": "analyze_scanned_document", "depends_on": [], "params": {}},
-    {"step_id": "step_2", "action": "Summarize findings and flag any low-confidence areas", "tool": "direct_llm", "depends_on": ["step_1"], "params": {}}
+    {
+      "step_id": "step_1",
+      "action": "Generate valve maintenance safety checklist and procedure report",
+      "tool": "generate_docx",
+      "depends_on": [],
+      "params": {
+        "title": "Valve Maintenance Safety Checklist and Procedure Report",
+        "content": "## Pre-Maintenance Safety Checks\\n- [ ] Isolate the valve from the process line\\n- [ ] Verify zero energy state (LOTO applied)\\n- [ ] Check for residual pressure using pressure gauge\\n- [ ] Wear appropriate PPE (gloves, goggles, face shield)\\n\\n## Maintenance Procedure\\n- [ ] Inspect valve body for corrosion or cracks\\n- [ ] Check packing gland for leaks\\n- [ ] Lubricate stem threads with approved grease\\n- [ ] Test valve open/close operation manually\\n\\n## Post-Maintenance Verification\\n- [ ] Restore valve to service position\\n- [ ] Remove LOTO and restore energy\\n- [ ] Perform leak test at operating pressure\\n- [ ] Log maintenance activity in CMMS"
+      }
+    }
   ]
 }
 """
@@ -93,7 +103,7 @@ class Planner:
                     modalities.append("engineering_drawing")
 
         # Check description keywords
-        if any(kw in desc_lower for kw in ["p&id", "drawing", "schematic", "blueprint", "valve", "instrumentation", "pipe"]):
+        if any(kw in desc_lower for kw in ["p&id", "schematic", "blueprint", "engineering drawing", "pid diagram"]):
             modalities.append("engineering_drawing")
         elif any(kw in desc_lower for kw in ["scan", "scanned", "invoice", "receipt", "inspection report", "form"]):
             modalities.append("scanned_document")

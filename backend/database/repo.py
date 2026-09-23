@@ -113,7 +113,7 @@ def export_audit_report(db: Session) -> dict:
                 "details": r.details,
                 "prev_hash": r.prev_hash,
                 "hash": r.hash,
-                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "created_at": r.created_at.isoformat() + 'Z' if r.created_at else None,
             }
             for r in rows
         ],

@@ -378,43 +378,219 @@ async function submitAgentTask() {
   chatMessages.insertAdjacentHTML('beforeend', loadingHtml);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
-  // Live trace list
-  document.getElementById('trace-list').innerHTML = `
-    <div class="trace-step-item">
-      <span class="spinner-sm" style="color:var(--accent);margin-top:2px;"></span>
+  // Live trace list (Dynamic Loading Sequence)
+  const traceList = document.getElementById('trace-list');
+  traceList.innerHTML = `
+    <div class="trace-step-item" id="sse-stage-row">
+      <span class="spinner-sm" style="color:var(--accent);margin-top:2px;flex-shrink:0;"></span>
       <div class="trace-step-main">
-        <div class="trace-step-title">Autonomous Orchestration</div>
-        <div class="trace-step-sub">Classifying intent & resolving DAG dependencies</div>
+        <div class="trace-step-title" id="sse-stage-title">Initialising pipeline...</div>
+        <div class="trace-step-sub" id="sse-stage-sub">Connecting to EdgeMind backend</div>
       </div>
     </div>
   `;
 
-  // 3. API Call to execute task
+  // ── SSE streaming fetch — real events from backend in real-time ───────────
   try {
     const payload = { prompt: prompt || 'Analyze attached document' };
-    if (currentFileBase64) {
-      payload.image_base64 = currentFileBase64;
-    }
+    if (currentFileBase64) payload.image_base64 = currentFileBase64;
 
-    const res = await fetch(`${API}/agent`, {
+    const res = await fetch(`${API}/agent/stream`, {
       method: 'POST',
       headers: { ...getHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
-    const data = await res.json();
-    console.log("AGENT RESPONSE:", data);
+    if (!res.ok) {
+      throw new Error(`Server error: ${res.status} ${res.statusText}`);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let finalData = null;
+    let stepRowIds = {};   // step_id -> DOM id for updating spinner→checkmark
+    let valRowIds  = {};   // check name -> DOM id for scorecard row
+
+    // Helper: add a row to the trace list
+    function addTraceRow(id, icon, title, sub, iconColor) {
+      const domId = `trace-row-${id}-${Date.now()}`;
+      traceList.insertAdjacentHTML('beforeend', `
+        <div class="trace-step-item" id="${domId}">
+          <span id="${domId}-icon" style="font-size:11px;font-family:var(--font-mono);color:${iconColor || 'var(--accent)'};margin-top:1px;flex-shrink:0;">${icon}</span>
+          <div class="trace-step-main">
+            <div class="trace-step-title">${escapeHtml(title)}</div>
+            <div class="trace-step-sub" id="${domId}-sub">${escapeHtml(sub)}</div>
+          </div>
+        </div>
+      `);
+      traceList.scrollTop = traceList.scrollHeight;
+      return domId;
+    }
+
+    // Helper: update a row's icon and sub-text
+    function updateTraceRow(domId, icon, sub, iconColor) {
+      const iconEl = document.getElementById(`${domId}-icon`);
+      const subEl  = document.getElementById(`${domId}-sub`);
+      if (iconEl) { iconEl.innerHTML = icon; iconEl.style.color = iconColor || 'var(--success)'; }
+      if (subEl && sub !== undefined) subEl.textContent = sub;
+    }
+
+    // ── SSE event handler ────────────────────────────────────────────────────
+    function handleEvent(evt) {
+      const stageTitle = document.getElementById('sse-stage-title');
+      const stageSub   = document.getElementById('sse-stage-sub');
+
+      if (evt.type === 'pipeline_start') {
+        if (stageTitle) stageTitle.textContent = 'Pipeline started';
+        if (stageSub)   stageSub.textContent   = `Task ${(evt.task_id || '').substring(0, 8)}...`;
+        
+        // Instantly animate the Validation Engine box to show it is actively working
+        const spinnerHtml = `<span class="spinner-sm" style="width:12px;height:12px;border-width:1px;color:var(--warning);margin-right:4px;"></span> pending...`;
+        const scoreBadge = document.getElementById('grounding-score-badge');
+        if (scoreBadge) {
+          scoreBadge.innerHTML = `<span class="spinner-sm" style="width:10px;height:10px;border-width:1px;margin-right:4px;border-top-color:transparent;"></span> SCORING`;
+          scoreBadge.className = 'tag-pill';
+        }
+        const valSchema = document.getElementById('val-schema');
+        if (valSchema) { valSchema.innerHTML = spinnerHtml; valSchema.style.color = 'var(--text-faint)'; }
+        const valGrounding = document.getElementById('val-grounding');
+        if (valGrounding) { valGrounding.innerHTML = spinnerHtml; valGrounding.style.color = 'var(--text-faint)'; }
+        const valRisk = document.getElementById('val-risk');
+        if (valRisk) { valRisk.innerHTML = `<span class="spinner-sm" style="width:12px;height:12px;border-width:1px;color:var(--warning);margin-right:4px;"></span> assessing...`; valRisk.style.color = 'var(--text-faint)'; }
+
+      } else if (evt.type === 'stage') {
+        const stageRow = document.getElementById('sse-stage-row');
+        const icons = { PLANNING: '⚙', EXECUTING: '▶', COMPLETED: '✓', FAILED: '✗' };
+        const colors = { PLANNING: 'var(--accent)', EXECUTING: 'var(--accent)', COMPLETED: 'var(--success)', FAILED: 'var(--danger)' };
+        
+        if (stageRow && evt.stage !== 'VALIDATING') {
+          const iconEl = stageRow.querySelector('span');
+          if (iconEl) {
+            if (evt.stage === 'PLANNING' || evt.stage === 'EXECUTING') {
+              iconEl.outerHTML = `<span class="spinner-sm" style="color:${colors[evt.stage] || 'var(--accent)'};margin-top:2px;flex-shrink:0;"></span>`;
+            } else {
+              const c = colors[evt.stage] || 'var(--success)';
+              stageRow.querySelector('span') && (stageRow.querySelector('span').outerHTML = `<span style="font-size:11px;color:${c};margin-top:1px;flex-shrink:0;">${icons[evt.stage] || '•'}</span>`);
+            }
+          }
+          if (stageTitle) stageTitle.textContent = evt.stage.charAt(0) + evt.stage.slice(1).toLowerCase();
+          if (stageSub)   stageSub.textContent   = evt.message || '';
+        }
+
+        if (evt.stage === 'VALIDATING') {
+          // Update the spinners to show it has reached the actual validation stage
+          const valSchema = document.getElementById('val-schema');
+          if (valSchema && valSchema.innerHTML.includes('pending')) { valSchema.innerHTML = `<span class="spinner-sm" style="width:12px;height:12px;border-width:1px;color:var(--warning);margin-right:4px;"></span> validating...`; }
+          const valGrounding = document.getElementById('val-grounding');
+          if (valGrounding && valGrounding.innerHTML.includes('pending')) { valGrounding.innerHTML = `<span class="spinner-sm" style="width:12px;height:12px;border-width:1px;color:var(--warning);margin-right:4px;"></span> validating...`; }
+        }
+
+      } else if (evt.type === 'step_start') {
+        const spinner = `<span class="spinner-sm" style="width:10px;height:10px;border-width:1px;color:var(--accent);"></span>`;
+        const domId = addTraceRow(evt.step_id, spinner, evt.action || evt.tool || 'Step', `Tool: ${evt.tool || '—'}`, 'var(--accent)');
+        // replace text icon with real spinner
+        const iconEl = document.getElementById(`${domId}-icon`);
+        if (iconEl) iconEl.innerHTML = `<span class="spinner-sm" style="width:10px;height:10px;border-width:1px;"></span>`;
+        stepRowIds[evt.step_id] = domId;
+
+      } else if (evt.type === 'step_done') {
+        const domId = stepRowIds[evt.step_id];
+        if (domId) {
+          const icon  = evt.success ? '✓' : '✗';
+          const color = evt.success ? 'var(--success)' : 'var(--danger)';
+          const sub   = evt.success ? (evt.output_snippet ? evt.output_snippet.substring(0, 80) : 'Done') : (evt.error || 'Failed');
+          updateTraceRow(domId, icon, sub, color);
+        }
+
+      } else if (evt.type === 'validation_check') {
+        // Live scorecard update directly in the Validation Engine card
+        if (evt.check === 'schema') {
+          const el = document.getElementById('val-schema');
+          if (el) { el.textContent = evt.passed ? '✓ pass' : '✗ fail'; el.style.color = evt.passed ? '' : 'var(--danger)'; }
+        }
+        else if (evt.check === 'grounding') {
+          const scoreEl    = document.getElementById('grounding-score-badge');
+          const groundEl   = document.getElementById('val-grounding');
+          const riskEl     = document.getElementById('val-risk');
+          const isBase     = evt.base_model;
+          const score      = Math.round((evt.score || 0) * 100);
+          if (scoreEl) {
+            scoreEl.textContent = isBase ? 'N/A (BASE)' : `${score}% SCORE`;
+            scoreEl.className   = isBase ? 'tag-pill' : (score >= 50 ? 'tag-pill success' : 'tag-pill danger');
+          }
+          if (groundEl) {
+            groundEl.textContent = isBase ? 'Ungrounded' : (evt.passed ? '✓ verified' : '⚠ failed');
+            groundEl.style.color = isBase ? 'var(--text-faint)' : (evt.passed ? '' : 'var(--warning)');
+          }
+          if (riskEl) {
+            riskEl.textContent = isBase ? 'Inherent' : (evt.risk || (score >= 80 ? 'Low' : score >= 50 ? 'Medium' : 'High'));
+            riskEl.style.color = isBase ? 'var(--text-faint)' : (score >= 80 ? '' : (score >= 50 ? 'var(--warning)' : 'var(--danger)'));
+          }
+        }
+        else if (evt.check === 'self_rag' && evt.passed === null) {
+          // If Self-RAG starts, show a specialized spinner in the grounding box
+          const groundEl = document.getElementById('val-grounding');
+          if (groundEl) { groundEl.innerHTML = `<span class="spinner-sm" style="width:12px;height:12px;border-width:1px;color:var(--warning);margin-right:4px;"></span> searching SOPs...`; }
+        }
+
+      } else if (evt.type === 'complete') {
+        finalData = evt;
+        const stageRow = document.getElementById('sse-stage-row');
+        if (stageRow) {
+          const iconEl = stageRow.querySelector('span');
+          if (iconEl) iconEl.outerHTML = `<span style="font-size:11px;color:var(--success);margin-top:1px;flex-shrink:0;">✓</span>`;
+          const stageTitle = document.getElementById('sse-stage-title');
+          const stageSub   = document.getElementById('sse-stage-sub');
+          if (stageTitle) stageTitle.textContent = 'Execution Complete';
+          if (stageSub)   stageSub.textContent   = 'Task verified and delivered';
+        }
+
+      } else if (evt.type === 'error') {
+        finalData = { error: evt.message };
+      }
+    }
+
+    // ── Read the SSE stream ───────────────────────────────────────────────────
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // Parse complete SSE events from buffer (separated by \n\n)
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop(); // keep incomplete trailing chunk
+
+      for (const part of parts) {
+        const line = part.trim();
+        if (line.startsWith('data: ')) {
+          try {
+            const evt = JSON.parse(line.slice(6));
+            handleEvent(evt);
+          } catch (e) {
+            console.warn('SSE parse error:', e, line);
+          }
+        }
+      }
+    }
+
+    // ── Pipeline complete — render final response ─────────────────────────────
     agentSubmit.disabled = false;
     document.getElementById('trace-pill').textContent = 'IDLE';
     document.getElementById('trace-pill').className = 'tag-pill';
 
-    // Finish Tool Execution Accordion
+    if (!finalData || finalData.error) {
+      throw new Error(finalData?.error || 'Pipeline returned no data');
+    }
+
+    const data = finalData;
+
+    // Close the tool accordion
     const toolStatus = document.getElementById(`tool-status-${agentMsgId}`);
     if (toolStatus) {
       toolStatus.className = 'tool-status-pill done';
       toolStatus.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Completed`;
     }
-    
     const toolArgs = document.getElementById(`tool-args-${agentMsgId}`);
     if (toolArgs && data.steps && data.steps.length > 0) {
       const primaryTool = data.steps.find(s => s.tool) || data.steps[0];
@@ -427,24 +603,20 @@ async function submitAgentTask() {
     const toolContainer = document.getElementById(`tool-${agentMsgId}`);
     if (toolContainer) toolContainer.classList.remove('open');
 
-    // Parse Markdown Response
+    // Render response
     const contentBox = document.getElementById(`content-${agentMsgId}`);
     contentBox.style.display = 'block';
 
     const chip = document.getElementById(`chip-${agentMsgId}`);
     if (chip) chip.textContent = data.model_used || 'Unknown';
-
     const activeBadge = document.getElementById('active-model-badge');
-    if (activeBadge && data.model_used) {
-      activeBadge.textContent = data.model_used;
-    }
-    
+    if (activeBadge && data.model_used) activeBadge.textContent = data.model_used;
+
     let outputText = data.final_output || 'Task execution completed.';
     window._responseCache[agentMsgId] = outputText;
-
     let outputHtml = formatMarkdown(outputText);
 
-    // Inline Generative Artifact Card (assistant-ui style)
+    // Artifact download cards
     if (data.artifacts && data.artifacts.length > 0) {
       data.artifacts.forEach(a => {
         outputHtml += `
@@ -465,8 +637,7 @@ async function submitAgentTask() {
         `;
       });
     }
-    
-    // Assistant-UI Message Actions
+
     outputHtml += `
       <div class="message-actions" style="margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border-subtle);">
         <button class="btn-action-sm" onclick="copyAgentText(this, '${agentMsgId}')">
@@ -477,60 +648,13 @@ async function submitAgentTask() {
         </button>
       </div>
     `;
-
     contentBox.innerHTML = outputHtml;
 
-    // Refresh Data
-    loadAllData();
-    fetchSovereignty();
-    
-    // Final trace log
-    if (data.steps && data.steps.length > 0) {
-      document.getElementById('trace-list').innerHTML = data.steps.map(s => `
-        <div class="trace-step-item">
-          <span class="trace-step-icon" style="color:${s.success ? 'var(--success)' : 'var(--danger)'}">${s.success ? '✓' : '✗'}</span>
-          <div class="trace-step-main">
-            <div class="trace-step-title">${escapeHtml(s.action || s.tool || 'Step')}</div>
-            <div class="trace-step-sub">${escapeHtml(s.tool ? `Tool: ${s.tool}` : 'Reasoning / synthesis')}</div>
-          </div>
-        </div>
-      `).join('');
-    } else {
-      document.getElementById('trace-list').innerHTML = `
-        <div class="trace-step-item">
-          <span class="trace-step-icon">✓</span>
-          <div class="trace-step-main">
-            <div class="trace-step-title">Execution Complete</div>
-            <div class="trace-step-sub">Synthesize response finished</div>
-          </div>
-        </div>
-      `;
-    }
-
-    // Telemetry Update
-    const score = data.grounding_score !== undefined ? Math.round(data.grounding_score * 100) : 96;
-    const gBadge = document.getElementById('grounding-score-badge');
-    if (gBadge) {
-      gBadge.textContent = `${score}% SCORE`;
-      gBadge.className = score >= 50 ? 'tag-pill success' : 'tag-pill danger';
-    }
-    const valSchema = document.getElementById('val-schema');
-    if (valSchema) {
-      const schemaOk = !(data.validation_report && data.validation_report.failure_reason && data.validation_report.failure_reason.includes('schema'));
-      valSchema.textContent = schemaOk ? '✓ pass' : '✗ fail';
-      valSchema.style.color = schemaOk ? '' : 'var(--danger)';
-    }
-    const valGrounding = document.getElementById('val-grounding');
-    if (valGrounding) {
-      valGrounding.textContent = data.validation_passed ? '✓ verified' : '⚠ failed';
-      valGrounding.style.color = data.validation_passed ? '' : 'var(--warning)';
-    }
-    const valRisk = document.getElementById('val-risk');
-    if (valRisk) valRisk.textContent = score >= 80 ? 'Low' : score >= 50 ? 'Medium' : 'High';
+    // Final retry count update
     const valRetries = document.getElementById('val-retries');
     if (valRetries) valRetries.textContent = `${data.retry_count || 0} / 3`;
 
-    // Evidence Update
+    // Evidence panel
     let citations = [];
     if (data.steps) {
       data.steps.forEach(s => {
@@ -538,74 +662,57 @@ async function submitAgentTask() {
           const docIdRegex = /\(Doc: ([a-f0-9\-]+)\)/g;
           let match;
           let foundDocs = new Set();
-          
           while ((match = docIdRegex.exec(s.output)) !== null) {
-            const docId = match[1];
-            const docObj = allDocuments.find(d => d.id === docId);
-            if (docObj) {
-              foundDocs.add(docObj.filename);
-            } else {
-              foundDocs.add(`Document ${docId.substring(0, 8)}`);
-            }
+            const docObj = allDocuments.find(d => d.id === match[1]);
+            foundDocs.add(docObj ? docObj.filename : `Document ${match[1].substring(0, 8)}`);
           }
-          
-          if (foundDocs.size > 0) {
-            foundDocs.forEach(name => citations.push(name));
-          } else {
-            citations.push('RAG Knowledge Search');
-          }
+          if (foundDocs.size > 0) foundDocs.forEach(n => citations.push(n));
+          else citations.push('RAG Knowledge Search');
         }
-        if ((s.tool === 'analyze_scanned_document' || s.tool === 'run_ocr') && s.output) citations.push('Visual Evidence / OCR');
+        if ((s.tool === 'analyze_scanned_document' || s.tool === 'run_ocr') && s.output)
+          citations.push('Visual Evidence / OCR');
       });
     }
     const evCount = document.getElementById('evidence-count');
     if (evCount) evCount.textContent = citations.length;
     const evList = document.getElementById('evidence-list');
     if (evList) {
-      if (citations.length > 0) {
-        evList.innerHTML = citations.map(c => `
-          <div class="trace-step-item">
-            <span class="trace-step-icon">⚲</span>
-            <div class="trace-step-main">
-              <div class="trace-step-title">${escapeHtml(c)}</div>
-            </div>
-          </div>
-        `).join('');
-      } else {
-        evList.innerHTML = `<div style="font-size:12px;color:var(--text-faint);padding:6px 0;">No chunks retrieved.</div>`;
-      }
+      evList.innerHTML = citations.length > 0
+        ? citations.map(c => `<div class="trace-step-item"><span class="trace-step-icon">⚲</span><div class="trace-step-main"><div class="trace-step-title">${escapeHtml(c)}</div></div></div>`).join('')
+        : `<div style="font-size:12px;color:var(--text-faint);padding:6px 0;">No chunks retrieved.</div>`;
     }
 
+    loadAllData();
+    fetchSovereignty();
     chatMessages.scrollTop = chatMessages.scrollHeight;
 
   } catch (err) {
+    agentSubmit.disabled = false;
     document.getElementById('trace-pill').textContent = 'ERROR';
     document.getElementById('trace-pill').className = 'tag-pill danger';
-    agentSubmit.disabled = false;
-    
-    // Handle error in UI
+
     const toolStatus = document.getElementById(`tool-status-${agentMsgId}`);
     if (toolStatus) {
       toolStatus.className = 'tool-status-pill error';
       toolStatus.style.background = 'var(--danger-subtle)';
       toolStatus.style.color = 'var(--danger)';
-      toolStatus.innerHTML = `Error`;
+      toolStatus.innerHTML = 'Error';
     }
     const contentBox = document.getElementById(`content-${agentMsgId}`);
     contentBox.style.display = 'block';
     contentBox.innerHTML = `
       <div style="color:var(--danger);font-family:var(--font-mono);font-size:12.5px;padding:12px;background:var(--danger-subtle);border-radius:var(--radius-sm);border:1px solid var(--danger-border);">
-        <strong>Pipeline Failure:</strong><br/>
-        ${escapeHtml(err.message)}
+        <strong>Pipeline Failure:</strong><br/>${escapeHtml(err.message)}
       </div>
-      <div class="message-actions" style="margin-top:12px; border-top:1px solid var(--border-subtle); padding-top:8px;">
-        <button class="btn-action-sm" onclick="retryPrompt('${agentMsgId}')" title="Regenerate">
+      <div class="message-actions" style="margin-top:12px;border-top:1px solid var(--border-subtle);padding-top:8px;">
+        <button class="btn-action-sm" onclick="retryPrompt('${agentMsgId}')">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg> Retry
         </button>
       </div>
     `;
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
+
 }
 
 

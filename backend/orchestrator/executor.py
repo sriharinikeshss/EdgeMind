@@ -28,18 +28,25 @@ class Executor:
     # content-type-tagged as untrusted before being folded into a later prompt.
     _UNTRUSTED_CONTEXT_TOOLS = {"rag_search", "analyze_scanned_document", "analyze_engineering_drawing", "run_ocr"}
 
-    def __init__(self, db_session=None, user_role: str = "operator", username: str | None = None):
+    def __init__(self, db_session=None, user_role: str = "operator", username: str | None = None, event_callback=None):
         self.db = db_session
         self.user_role = user_role
         self.username = username
         self.events: list[dict] = []   # collected step events for WS streaming
         self.context: dict[str, Any] = {}  # accumulates tool outputs across steps
         self.context_sources: dict[str, str] = {}  # step_id -> tool name, for untrusted-content tagging
+        self.event_callback = event_callback  # SSE: callable(event_dict) called in real-time
 
     def _emit(self, event_type: str, payload: dict) -> None:
         event = {"type": event_type, **payload}
         self.events.append(event)
         logger.info("AGENT EVENT: %s", event)
+        # Push to SSE generator immediately if a callback is registered
+        if self.event_callback:
+            try:
+                self.event_callback(event)
+            except Exception as cb_exc:
+                logger.warning("SSE event_callback failed: %s", cb_exc)
 
     def execute_plan(self, plan: ExecutionPlan, sm: TaskStateMachine | None = None) -> dict:
         """
@@ -181,9 +188,25 @@ class Executor:
         from tools.registry import ARTIFACT_TOOL_NAMES
         if tool_name in ARTIFACT_TOOL_NAMES:
             if "title" not in params or not params["title"]:
-                params["title"] = step.action or "Approval Note"
-            if "content" not in params and ctx_str:
-                params["content"] = ctx_str
+                params["title"] = step.action or "Report"
+            # Only inject content if the plan didn't already supply it.
+            # Collect only clean text from prior direct_llm steps — skip
+            # artifact metadata dicts (they are JSON blobs like {"status":"ok","id":...})
+            if "content" not in params or not params.get("content"):
+                text_context_parts = []
+                for sid, out in self.context.items():
+                    src_tool = self.context_sources.get(sid, "")
+                    # Skip output from other artifact generators (JSON metadata)
+                    if src_tool in ARTIFACT_TOOL_NAMES:
+                        continue
+                    out_str = str(out).strip()
+                    # Skip strings that look like raw JSON metadata blobs
+                    if out_str.startswith("{") and '"status"' in out_str and '"file_hash"' in out_str:
+                        continue
+                    if out_str:
+                        text_context_parts.append(out_str)
+                if text_context_parts:
+                    params["content"] = "\n\n".join(text_context_parts)
 
         try:
             if tool_name == "direct_llm":
@@ -255,6 +278,17 @@ class Executor:
                         clean_output = output["grounding_prompt"]
                     elif output.get("stdout") is not None:
                         clean_output = output["stdout"]
+                    elif tool_name in ARTIFACT_TOOL_NAMES and output.get("status") == "ok":
+                        # Artifact tool succeeded — show a clean human-readable summary
+                        # instead of dumping the raw metadata JSON into the chat.
+                        fname = output.get("filename", "file")
+                        fhash = output.get("file_hash", "")[:12]
+                        clean_output = (
+                            f"✅ Document generated successfully.\n\n"
+                            f"**File:** {fname}\n"
+                            f"**Hash:** {fhash}...\n\n"
+                            f"Your file is ready to download below."
+                        )
                     else:
                         # Fallback for dicts without standard keys (if any)
                         clean_output = json.dumps(output)
