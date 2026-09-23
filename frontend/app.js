@@ -878,14 +878,17 @@ async function fetchSovereignty() {
     const mainTitle = document.getElementById('sov-main-title');
     const metaDesc = document.getElementById('sov-meta-desc');
     
+    const dot = document.querySelector('.node-health .status-dot');
     if (data.sovereign) {
       statusText.textContent = 'AIR-GAPPED';
       statusText.style.color = 'var(--success)';
+      if (dot) dot.style.background = 'var(--success)';
       mainTitle.textContent = '100% Local Inference';
       metaDesc.textContent = 'Zero egress detected • Ollama';
     } else {
       statusText.textContent = 'EGRESS FLAGGED';
-      statusText.style.color = 'var(--warning)';
+      statusText.style.color = '#ef4444';
+      if (dot) dot.style.background = '#ef4444';
       mainTitle.textContent = 'External Network Reachable';
       const flags = (data.network_monitor && data.network_monitor.flagged_external_connections && data.network_monitor.flagged_external_connections.length > 0) 
         ? `${data.network_monitor.flagged_external_connections.length} external connections` 
