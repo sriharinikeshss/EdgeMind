@@ -113,6 +113,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
     crumbEl.textContent = navLabels[page] || 'WORKBENCH';
 
     if (page === 'knowledge') loadDocuments();
+      fetchSovereignty();
     if (page === 'artifacts') loadArtifacts();
     if (page === 'audit') loadAuditLogs();
     fetchSovereignty();
@@ -122,6 +123,107 @@ document.querySelectorAll('.nav-item').forEach(item => {
 document.getElementById('refresh-all-btn')?.addEventListener('click', function() {
   loadAllData();
   fetchSovereignty();
+
+  // Abort running generation stream
+  if (window._currentAgentStreamController) {
+    window._currentAgentStreamController.abort();
+    window._currentAgentStreamController = null;
+  }
+  
+  // Reset Execution Trace Panel
+  const traceList = document.getElementById('trace-list');
+  if (traceList) {
+    traceList.innerHTML = `
+      <div class="trace-step-item">
+        <span class="trace-step-icon">⚲</span>
+        <div class="trace-step-main">
+          <div class="trace-step-title">Standby</div>
+          <div class="trace-step-sub">Awaiting prompt dispatch</div>
+        </div>
+      </div>
+    `;
+  }
+  const tracePill = document.getElementById('trace-pill');
+  if (tracePill) {
+    tracePill.textContent = 'IDLE';
+    tracePill.className = 'tag-pill';
+  }
+
+  // Reset Validation Engine Panel
+  const valSchema = document.getElementById('val-schema');
+  if (valSchema) { valSchema.textContent = '✓ pass'; valSchema.style.color = ''; }
+  const valGrounding = document.getElementById('val-grounding');
+  if (valGrounding) { valGrounding.textContent = '✓ verified'; valGrounding.style.color = ''; }
+  const valRisk = document.getElementById('val-risk');
+  if (valRisk) { valRisk.textContent = 'Low'; valRisk.style.color = 'var(--success)'; }
+  const valRetries = document.getElementById('val-retries');
+  if (valRetries) { valRetries.textContent = '0 / 3'; }
+  const scoreBadge = document.getElementById('grounding-score-badge');
+  if (scoreBadge) {
+    scoreBadge.textContent = '100% SCORE';
+    scoreBadge.className = 'tag-pill success';
+  }
+
+  // Reset Citations Panel
+  const evList = document.getElementById('evidence-list');
+  if (evList) {
+    evList.innerHTML = `<div style="font-size:12px;color:var(--text-faint);padding:6px 0;">No RAG chunks retrieved yet.</div>`;
+  }
+  const evCount = document.getElementById('evidence-count');
+  if (evCount) { evCount.textContent = '0'; }
+  
+  // Clear inputs and state
+  document.getElementById('agent-prompt').value = '';
+  attachedFileBase64 = null;
+  attachedFileName = '';
+  document.getElementById('agent-file').value = '';
+  document.getElementById('upload-indicator-box').style.display = 'none';
+  document.getElementById('agent-submit').disabled = false;
+
+  // Clear chat messages and restore empty state
+  const chatMessages = document.getElementById('chat-messages');
+  if (chatMessages) {
+    chatMessages.innerHTML = `
+      <div class="chat-empty-state" id="chat-empty-state">
+        <div class="empty-icon-box">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+        </div>
+        <h1 class="empty-title" id="welcome-title">Welcome to EdgeMind</h1>
+        <p class="empty-desc">Autonomous on-premise AI agent with multi-modal vision, semantic RAG search, tool execution, and cryptographic verification.</p>
+        
+        <div class="prompt-suggestions">
+          <div class="suggestion-pill" data-prompt="Search SOPs and tell me the maximum valve pressure">
+            <span>🔍 Search SOPs for Maximum Valve Pressure</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+          <div class="suggestion-pill" data-prompt="Analyze the attached P&ID drawing and list all instruments">
+            <span>📎 Analyze P&ID instruments</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+          <div class="suggestion-pill" data-prompt="Generate a Python script to monitor system logs">
+            <span>💻 Generate monitoring script</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+          <div class="suggestion-pill" data-prompt="Summarize the latest 5 audit trail events into a DOCX report">
+            <span>📄 Summarize audit to DOCX</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Re-attach suggestion pill event listeners
+    document.querySelectorAll('.suggestion-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        const prompt = pill.dataset.prompt;
+        if (prompt) {
+          document.getElementById('agent-prompt').value = prompt;
+          submitAgentTask();
+        }
+      });
+    });
+  }
+
   const svg = this.querySelector('svg');
   if (svg) {
     svg.style.transition = 'transform 0.5s ease';
@@ -132,6 +234,7 @@ document.getElementById('refresh-all-btn')?.addEventListener('click', function()
 
 function loadAllData() {
   loadDocuments();
+      fetchSovereignty();
   loadArtifacts();
   loadAuditLogs();
   fetchSovereignty();
@@ -390,10 +493,16 @@ async function submitAgentTask() {
 
   // ── SSE streaming fetch — real events from backend in real-time ───────────
   try {
+    if (window._currentAgentStreamController) {
+      window._currentAgentStreamController.abort();
+    }
+    window._currentAgentStreamController = new AbortController();
+
     const payload = { prompt: prompt || 'Analyze attached document' };
     if (currentFileBase64) payload.image_base64 = currentFileBase64;
 
     const res = await fetch(`${API}/agent/stream`, {
+      signal: window._currentAgentStreamController.signal,
       method: 'POST',
       headers: { ...getHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -614,10 +723,11 @@ async function submitAgentTask() {
     window._responseCache[agentMsgId] = outputText;
     let outputHtml = formatMarkdown(outputText);
 
+    let artifactsHtml = '';
     // Artifact download cards
     if (data.artifacts && data.artifacts.length > 0) {
       data.artifacts.forEach(a => {
-        outputHtml += `
+        artifactsHtml += `
           <div class="message-deliverable-card">
             <div class="deliverable-info">
               <div class="deliverable-icon">
@@ -636,7 +746,7 @@ async function submitAgentTask() {
       });
     }
 
-    outputHtml += `
+    let actionsHtml = `
       <div class="message-actions" style="margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border-subtle);">
         <button class="btn-action-sm" onclick="copyAgentText(this, '${agentMsgId}')">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> <span class="copy-label">Copy</span>
@@ -646,7 +756,16 @@ async function submitAgentTask() {
         </button>
       </div>
     `;
-    contentBox.innerHTML = outputHtml;
+    
+    // Animate streaming text instead of setting innerHTML directly
+    renderStreamingText(contentBox, outputHtml, () => {
+      if (artifactsHtml || actionsHtml) {
+        contentBox.insertAdjacentHTML('beforeend', artifactsHtml + actionsHtml);
+        
+        const chatMessages = document.getElementById('chat-messages');
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    });
 
     // Final retry count update
     const valRetries = document.getElementById('val-retries');
@@ -1031,6 +1150,9 @@ function formatMarkdown(text) {
   clean = clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   clean = clean.replace(/\*(.*?)\*/g, '<em>$1</em>');
   
+    // Code blocks
+  clean = clean.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre style="background:var(--bg);padding:12px;border-radius:6px;overflow-x:auto;font-family:var(--font-mono);font-size:12px;margin:8px 0;border:1px solid var(--border-subtle);"><code class="language-$1" style="background:transparent;border:none;padding:0;">$2</code></pre>');
+
   // Inline code
   clean = clean.replace(/`([^`]+)`/g, '<code style="font-family:var(--font-mono);font-size:12px;background:var(--bg);padding:2px 6px;border-radius:4px;border:1px solid var(--border-subtle);color:var(--accent);">$1</code>');
   
@@ -1039,4 +1161,139 @@ function formatMarkdown(text) {
   clean = clean.replace(/\n/g, '<br/>');
   
   return clean;
+}
+
+
+// ---------------- SOVEREIGNTY STATUS ----------------
+async function fetchSovereignty() {
+  try {
+    const res = await fetch(`${API}/sovereignty/report`, { headers: getHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    
+    const sovTitle = document.getElementById('sov-title');
+    const sovScore = document.getElementById('sov-score');
+    const sovMsg = document.getElementById('sov-msg');
+    const sovSub = document.querySelector('.sov-details .sov-sub');
+    
+    if (data.sovereign) {
+      sovTitle.innerHTML = 'Local &amp; protected';
+      sovTitle.nextElementSibling.setAttribute('stroke', 'var(--success)');
+      sovScore.textContent = '100';
+      sovMsg.textContent = 'No egress detected';
+      sovSub.textContent = 'Air-gapped verification passed';
+    } else {
+      sovTitle.innerHTML = 'External egress detected';
+      sovTitle.nextElementSibling.setAttribute('stroke', 'var(--danger)');
+      sovScore.textContent = '65';
+      
+      const egressStr = data.egress_check && !data.egress_check.egress_blocked ? 'Internet reachable. ' : '';
+      const flags = (data.network_monitor && data.network_monitor.flagged_external_connections && data.network_monitor.flagged_external_connections.length > 0) ? `${data.network_monitor.flagged_external_connections.length} external connections.` : '';
+      
+      sovMsg.textContent = egressStr + flags || 'Network anomaly detected';
+      sovMsg.style.color = 'var(--danger)';
+      sovSub.textContent = 'Warning: Not strictly air-gapped';
+    }
+  } catch (err) {
+    console.error("Sovereignty fetch failed", err);
+  }
+}
+
+// ---------------- STREAMING TEXT EFFECT ----------------
+function renderStreamingText(container, html, onComplete) {
+  // Setup CSS if not present
+  if (!document.getElementById('stream-text-styles')) {
+    const style = document.createElement('style');
+    style.id = 'stream-text-styles';
+    style.innerHTML = `
+      .stream-word {
+        transition: color 0.7s ease, opacity 0.1s ease;
+      }
+      .stream-hidden {
+        opacity: 0;
+      }
+      .stream-tinted {
+        color: var(--primary, #3b82f6) !important;
+      }
+      .stream-caret {
+        color: var(--primary, #3b82f6);
+        margin-left: 2px;
+        animation: blink 1s step-end infinite;
+        vertical-align: text-bottom;
+        display: inline-block;
+      }
+      @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  const words = [];
+  
+  function processNode(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent;
+      // match words or spaces
+      const fragments = text.split(/(\s+)/);
+      const parent = node.parentNode;
+      
+      const fragment = document.createDocumentFragment();
+      for (const frag of fragments) {
+        if (frag.trim().length > 0) {
+          const span = document.createElement('span');
+          span.textContent = frag;
+          span.className = 'stream-word stream-hidden';
+          fragment.appendChild(span);
+          words.push(span);
+        } else if (frag.length > 0) {
+          fragment.appendChild(document.createTextNode(frag));
+        }
+      }
+      parent.replaceChild(fragment, node);
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      Array.from(node.childNodes).forEach(processNode);
+    }
+  }
+  
+  Array.from(template.content.childNodes).forEach(processNode);
+  container.innerHTML = '';
+  container.appendChild(template.content);
+  
+  const caret = document.createElement('span');
+  caret.className = 'stream-caret';
+  caret.textContent = '▋';
+  
+  let currentIndex = 0;
+  
+  // Fast interval for word-by-word streaming
+  const interval = setInterval(() => {
+    if (currentIndex < words.length) {
+      const currentWord = words[currentIndex];
+      currentWord.classList.remove('stream-hidden');
+      currentWord.classList.add('stream-tinted');
+      
+      if (currentIndex >= 2) {
+        words[currentIndex - 2].classList.remove('stream-tinted');
+      }
+      
+      currentWord.parentNode.insertBefore(caret, currentWord.nextSibling);
+      
+      const chatMessages = document.getElementById('chat-messages');
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      
+      currentIndex++;
+    } else {
+      clearInterval(interval);
+      if (caret.parentNode) caret.parentNode.removeChild(caret);
+      
+      if (words.length > 0) words[words.length - 1].classList.remove('stream-tinted');
+      if (words.length > 1) words[words.length - 2].classList.remove('stream-tinted');
+      
+      if (onComplete) onComplete();
+    }
+  }, 40);
 }
