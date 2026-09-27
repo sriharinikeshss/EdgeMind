@@ -1076,7 +1076,7 @@ function renderAuditLogs(logs) {
     return;
   }
 
-  auditBody.innerHTML = logs.slice(0, 40).map(l => {
+  auditBody.innerHTML = [...logs].reverse().slice(0, 40).map(l => {
     const timeStr = l.created_at ? new Date(l.created_at).toLocaleTimeString() : '—';
     const hashStr = l.hash ? l.hash.substring(0, 8) : '—';
 
