@@ -1,8 +1,7 @@
-﻿# EdgeMind
+# EdgeMind
 
 **A sovereign, air-gapped agentic AI workbench for industrial inspection — zero cloud dependency, runs entirely on-premise.**
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.103-009688.svg)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://react.dev)
@@ -60,7 +59,9 @@ EdgeMind is a full-stack agentic AI workbench that runs entirely on local hardwa
 
 ---
 
-## Architecture`n`n<img src="docs/architecture.png" alt="EdgeMind Architecture" width="1000">
+## Architecture
+
+<img src="docs/architecture.png" alt="EdgeMind Architecture" width="1000">
 
 ---
 
@@ -308,12 +309,6 @@ docker-compose run --rm backend pytest
 # Run a specific test file
 docker-compose run --rm backend pytest tests/test_phase2_qa.py -v
 ```
-
----
-
-## License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
